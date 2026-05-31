@@ -1,21 +1,19 @@
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import express, { type Request, type Response } from "express";
-import type { Role } from "@webmana/contracts";
+import { createDatabase } from "@webmana/db";
 import { createMcpServer } from "./server.js";
+import { resolveToken } from "./auth.js";
 
 /**
  * Remote transport for AI clients (e.g. Cursor) over HTTP/SSE.
  * Authenticates with a Bearer token from the mcp_tokens table and scopes the
- * session to that token's role. Phase 0 stubs token lookup; Phase 3 wires it
- * to @webmana/db and the shared RBAC guard.
+ * session to that token's org + role, so the AI inherits RBAC.
  */
-const transports = new Map<string, SSEServerTransport>();
+const db = createDatabase(
+  process.env.DATABASE_URL ?? "postgres://webmana:webmana@localhost:5432/webmana",
+);
 
-async function resolveRole(token: string | undefined): Promise<Role | null> {
-  // Phase 0 stub: accept a dev token from env, scope to viewer.
-  if (token && token === process.env.MCP_DEV_TOKEN) return "viewer";
-  return null;
-}
+const transports = new Map<string, SSEServerTransport>();
 
 function bearer(req: Request): string | undefined {
   const header = req.header("authorization");
@@ -27,8 +25,8 @@ function bearer(req: Request): string | undefined {
 const app = express();
 
 app.get("/sse", async (req: Request, res: Response) => {
-  const role = await resolveRole(bearer(req));
-  if (!role) {
+  const session = await resolveToken(db, bearer(req));
+  if (!session) {
     res.status(401).json({ error: "invalid or missing bearer token" });
     return;
   }
@@ -37,7 +35,7 @@ app.get("/sse", async (req: Request, res: Response) => {
   transports.set(transport.sessionId, transport);
   res.on("close", () => transports.delete(transport.sessionId));
 
-  const server = createMcpServer({ role });
+  const server = createMcpServer({ db, ...session });
   await server.connect(transport);
 });
 
@@ -53,6 +51,5 @@ app.post("/messages", async (req: Request, res: Response) => {
 
 const port = Number(process.env.MCP_PORT ?? 4100);
 app.listen(port, () => {
-  // eslint-disable-next-line no-console
   console.log(`Webmana MCP (HTTP/SSE) listening on :${port}`);
 });

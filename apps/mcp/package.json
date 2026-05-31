@@ -20,6 +20,7 @@
     "@modelcontextprotocol/sdk": "^1.12.0",
     "@webmana/contracts": "workspace:*",
     "@webmana/db": "workspace:*",
+    "drizzle-orm": "^0.38.3",
     "express": "^4.21.2",
     "zod": "^3.24.1"
   },
