@@ -15,3 +15,4 @@ export { ga4Connector } from "./builtin/ga4.js";
 export { observatoryConnector } from "./builtin/observatory.js";
 export { datadogConnector } from "./builtin/datadog.js";
 export { elasticsearchConnector } from "./builtin/elasticsearch.js";
+export { snykConnector } from "./builtin/snyk.js";
