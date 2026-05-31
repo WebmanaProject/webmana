@@ -11,3 +11,4 @@ export { whoisConnector } from "./builtin/whois.js";
 export { pagespeedConnector } from "./builtin/pagespeed.js";
 export { uptimerobotConnector } from "./builtin/uptimerobot.js";
 export { cloudflareConnector } from "./builtin/cloudflare.js";
+export { ga4Connector } from "./builtin/ga4.js";
