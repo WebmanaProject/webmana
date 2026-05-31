@@ -1,3 +1,5 @@
+import nodemailer, { type Transporter } from "nodemailer";
+
 /** A fired alert, ready to be delivered to a notification channel. */
 export interface AlertNotification {
   projectId: string;
@@ -61,6 +63,50 @@ async function deliverSlack(
   if (!res.ok) throw new Error(`slack returned HTTP ${res.status}`);
 }
 
+let cachedTransport: Transporter | null = null;
+
+/** Build (and cache) the SMTP transport from environment configuration. */
+function getTransport(): Transporter {
+  if (cachedTransport) return cachedTransport;
+  const host = process.env.SMTP_HOST;
+  if (!host) throw new Error("SMTP_HOST not configured");
+  const port = Number.parseInt(process.env.SMTP_PORT ?? "587", 10);
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  cachedTransport = nodemailer.createTransport({
+    host,
+    port,
+    secure: process.env.SMTP_SECURE === "true" || port === 465,
+    auth: user && pass ? { user, pass } : undefined,
+  });
+  return cachedTransport;
+}
+
+async function deliverEmail(
+  config: Record<string, unknown>,
+  n: AlertNotification,
+): Promise<void> {
+  const to = typeof config.to === "string" ? config.to : undefined;
+  if (!to) throw new Error("email channel missing 'to'");
+  const from = process.env.SMTP_FROM ?? process.env.SMTP_USER;
+  if (!from) throw new Error("SMTP_FROM (or SMTP_USER) not configured");
+
+  const subject = `[${n.severity.toUpperCase()}] ${n.projectName}: ${n.metricName}`;
+  const op = OPERATOR_LABEL[n.operator] ?? n.operator;
+  const text = [
+    summarize(n),
+    "",
+    `Project:   ${n.projectName} (${n.domain})`,
+    `Metric:    ${n.metricName}`,
+    `Value:     ${n.value}`,
+    `Threshold: ${op} ${n.threshold}`,
+    `Severity:  ${n.severity}`,
+    `Fired at:  ${n.firedAt.toISOString()}`,
+  ].join("\n");
+
+  await getTransport().sendMail({ from, to, subject, text });
+}
+
 /** Deliver one notification to one channel. Throws on delivery failure. */
 export async function deliver(
   channel: AlertChannel,
@@ -72,8 +118,7 @@ export async function deliver(
     case "slack":
       return deliverSlack(channel.config, n);
     case "email":
-      // SMTP delivery is deferred to a later step.
-      throw new Error("email channel not yet implemented");
+      return deliverEmail(channel.config, n);
     default:
       throw new Error(`unknown channel kind "${channel.kind}"`);
   }
