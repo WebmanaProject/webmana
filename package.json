@@ -1,6 +1,6 @@
 {
   "name": "webmana",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "Webmana — self-hosted single pane of glass for managing many domains/projects, with a built-in MCP server for AI.",
   "license": "AGPL-3.0-only",

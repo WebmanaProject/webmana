@@ -1,6 +1,6 @@
 {
   "name": "@webmana/api",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "Webmana API — NestJS REST API, auth, and RBAC.",
   "license": "AGPL-3.0-only",

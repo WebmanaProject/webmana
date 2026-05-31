@@ -1,6 +1,6 @@
 {
   "name": "@webmana/db",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "Drizzle schema, migrations, and client for Webmana (PostgreSQL + TimescaleDB).",
   "license": "AGPL-3.0-only",
