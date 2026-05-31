@@ -10,6 +10,7 @@ import { cloudflareConnector } from "./builtin/cloudflare.js";
 import { ga4Connector } from "./builtin/ga4.js";
 import { observatoryConnector } from "./builtin/observatory.js";
 import { datadogConnector } from "./builtin/datadog.js";
+import { elasticsearchConnector } from "./builtin/elasticsearch.js";
 
 /** All connectors known to Webmana, keyed by id. */
 export const connectors = {
@@ -23,6 +24,7 @@ export const connectors = {
   ga4: ga4Connector,
   observatory: observatoryConnector,
   datadog: datadogConnector,
+  elasticsearch: elasticsearchConnector,
 } satisfies Partial<Record<ConnectorId, Connector>>;
 
 export function getConnector(id: string): Connector | undefined {
