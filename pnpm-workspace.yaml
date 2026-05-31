@@ -1,0 +1,10 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+overrides:
+  ioredis: 5.11.0
+allowBuilds:
+  '@nestjs/core': true
+  esbuild: true
+  msgpackr-extract: true
+  sharp: true

@@ -1,0 +1,31 @@
+                    GNU AFFERO GENERAL PUBLIC LICENSE
+                       Version 3, 19 November 2007
+
+  Webmana — self-hosted single pane of glass for managing many domains.
+  Copyright (C) 2026  Webmana contributors
+
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU Affero General Public License as published
+  by the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU Affero General Public License for more details.
+
+  You should have received a copy of the GNU Affero General Public License
+  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+SPDX-License-Identifier: AGPL-3.0-only
+
+------------------------------------------------------------------------------
+NOTE TO MAINTAINERS: the full verbatim text of the GNU AGPL v3 must accompany
+this notice. It could not be fetched automatically (no network access in the
+scaffolding environment). Before the first public release, replace this file
+with the canonical full license text from:
+
+    https://www.gnu.org/licenses/agpl-3.0.txt
+
+The license terms above and the SPDX identifier remain authoritative.
+------------------------------------------------------------------------------

@@ -1,0 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --accent: #00ffaa;
+  --accent-strong: #00b37a;
+  --accent-ink: #04261c;
+  --bg: #ffffff;
+  --bg-subtle: #f6faf8;
+  --border: #e4ebe8;
+  --text: #0b1f1a;
+  --text-muted: #5b6b66;
+}
+
+html,
+body {
+  background-color: var(--bg);
+  color: var(--text);
+}
+
+*:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

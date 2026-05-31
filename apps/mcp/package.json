@@ -1,0 +1,32 @@
+{
+  "name": "@webmana/mcp",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Webmana MCP server — exposes read-only project data over stdio and HTTP/SSE.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "bin": {
+    "webmana-mcp": "dist/stdio.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch src/http.ts",
+    "start": "node dist/http.js",
+    "start:stdio": "node dist/stdio.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "echo \"no lint configured\""
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "@webmana/contracts": "workspace:*",
+    "@webmana/db": "workspace:*",
+    "express": "^4.21.2",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}

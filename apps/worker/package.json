@@ -1,0 +1,26 @@
+{
+  "name": "@webmana/worker",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Webmana worker — BullMQ scheduler and connector runners.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch src/main.ts",
+    "start": "node dist/main.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "echo \"no lint configured\""
+  },
+  "dependencies": {
+    "@webmana/contracts": "workspace:*",
+    "@webmana/db": "workspace:*",
+    "bullmq": "^5.34.5",
+    "ioredis": "^5.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}

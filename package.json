@@ -1,0 +1,24 @@
+{
+  "name": "webmana",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Webmana — self-hosted single pane of glass for managing many domains/projects, with a built-in MCP server for AI.",
+  "license": "AGPL-3.0-only",
+  "packageManager": "pnpm@11.2.2",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "db:generate": "pnpm --filter @webmana/db generate",
+    "db:migrate": "pnpm --filter @webmana/db migrate"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.3"
+  }
+}
