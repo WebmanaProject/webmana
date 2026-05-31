@@ -18,19 +18,16 @@ export default function HomePage() {
 
       <div className="flex flex-wrap items-center justify-center gap-3">
         <a
-          href="https://webmana.dev"
+          href="/dashboard"
           className="rounded-2xl bg-accent px-5 py-3 font-medium text-accent-ink transition hover:brightness-95"
         >
-          Get started
+          Open dashboard
         </a>
         <code className="rounded-2xl border border-border bg-bg-subtle px-5 py-3 font-mono text-sm">
           docker compose up
         </code>
       </div>
 
-      <p className="mt-12 text-sm text-text-muted">
-        Phase 0 scaffold — dashboard coming next.
-      </p>
     </main>
   );
 }

@@ -35,6 +35,9 @@ importers:
       '@webmana/db':
         specifier: workspace:*
         version: link:../../packages/db
+      drizzle-orm:
+        specifier: ^0.38.3
+        version: 0.38.4(@types/react@19.2.15)(postgres@3.4.9)(react@19.2.6)
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2

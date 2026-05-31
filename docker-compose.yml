@@ -97,6 +97,8 @@ services:
       target: runtime
     command: ["pnpm", "--filter", "@webmana/web", "start"]
     environment:
+      # Server-side fetches (dashboard) reach the API over the compose network.
+      API_URL: http://api:4000
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000/api}
     ports:
       - "3000:3000"

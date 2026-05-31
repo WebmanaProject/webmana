@@ -17,6 +17,7 @@
     "@nestjs/platform-express": "^11.0.0",
     "@webmana/contracts": "workspace:*",
     "@webmana/db": "workspace:*",
+    "drizzle-orm": "^0.38.3",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
   },
