@@ -3,6 +3,7 @@ import { Redis } from "ioredis";
 import { eq } from "drizzle-orm";
 import { createDatabase, schema } from "@webmana/db";
 import { getConnector, type ConnectorRunContext } from "@webmana/connectors";
+import { decryptSecrets } from "@webmana/crypto";
 
 const connection = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379", {
   maxRetriesPerRequest: null,
@@ -56,6 +57,7 @@ async function runSync(connectorInstanceId: string): Promise<void> {
       id: schema.connectorInstances.id,
       connectorId: schema.connectorInstances.connectorId,
       config: schema.connectorInstances.config,
+      encryptedSecrets: schema.connectorInstances.encryptedSecrets,
       projectId: schema.connectorInstances.projectId,
       domain: schema.projects.domain,
     })
@@ -88,10 +90,15 @@ async function runSync(connectorInstanceId: string): Promise<void> {
     .where(eq(schema.connectorInstances.id, row.id));
 
   try {
+    const secrets = row.encryptedSecrets
+      ? decryptSecrets(row.encryptedSecrets)
+      : undefined;
+
     const ctx: ConnectorRunContext = {
       projectId: row.projectId,
       domain: row.domain,
       config: (row.config as Record<string, unknown>) ?? {},
+      secrets,
       now,
     };
 
