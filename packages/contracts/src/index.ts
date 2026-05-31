@@ -16,6 +16,7 @@ export const connectorIdSchema = z.enum([
   "pagespeed",
   "uptimerobot",
   "ga4",
+  "observatory",
 ]);
 export type ConnectorId = z.infer<typeof connectorIdSchema>;
 
