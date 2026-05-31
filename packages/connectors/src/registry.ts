@@ -6,6 +6,7 @@ import { dnsConnector } from "./builtin/dns.js";
 import { whoisConnector } from "./builtin/whois.js";
 import { pagespeedConnector } from "./builtin/pagespeed.js";
 import { uptimerobotConnector } from "./builtin/uptimerobot.js";
+import { cloudflareConnector } from "./builtin/cloudflare.js";
 
 /** All connectors known to Webmana, keyed by id. */
 export const connectors = {
@@ -15,6 +16,7 @@ export const connectors = {
   whois: whoisConnector,
   pagespeed: pagespeedConnector,
   uptimerobot: uptimerobotConnector,
+  cloudflare: cloudflareConnector,
 } satisfies Partial<Record<ConnectorId, Connector>>;
 
 export function getConnector(id: string): Connector | undefined {
