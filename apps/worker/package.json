@@ -13,10 +13,12 @@
     "lint": "echo \"no lint configured\""
   },
   "dependencies": {
+    "@webmana/connectors": "workspace:*",
     "@webmana/contracts": "workspace:*",
     "@webmana/db": "workspace:*",
     "bullmq": "^5.34.5",
-    "ioredis": "^5.4.2"
+    "drizzle-orm": "^0.38.3",
+    "ioredis": "^5.11.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.5",

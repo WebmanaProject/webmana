@@ -10,11 +10,16 @@ const configSchema = z.object({
   timeoutMs: z.number().int().positive().default(10_000),
 });
 
-interface SslRaw {
+export interface SslRaw {
   validTo: string | null;
   validFrom: string | null;
   issuer: string | null;
   error?: string;
+}
+
+function firstString(value: string | string[] | undefined): string | null {
+  if (Array.isArray(value)) return value[0] ?? null;
+  return value ?? null;
 }
 
 function getCertificate(
@@ -58,7 +63,7 @@ export const sslConnector: Connector<SslRaw> = {
       const cert = await getCertificate(ctx.domain, port, timeoutMs);
       const issuer =
         cert.issuer && typeof cert.issuer === "object"
-          ? (cert.issuer.O ?? cert.issuer.CN ?? null)
+          ? (firstString(cert.issuer.O) ?? firstString(cert.issuer.CN))
           : null;
       return {
         validTo: cert.valid_to ?? null,

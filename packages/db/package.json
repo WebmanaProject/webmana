@@ -5,11 +5,17 @@
   "description": "Drizzle schema, migrations, and client for Webmana (PostgreSQL + TimescaleDB).",
   "license": "AGPL-3.0-only",
   "type": "module",
-  "main": "./src/index.ts",
+  "main": "./dist/index.js",
   "types": "./src/index.ts",
   "exports": {
-    ".": "./src/index.ts",
-    "./schema": "./src/schema.ts"
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    },
+    "./schema": {
+      "types": "./src/schema.ts",
+      "default": "./dist/schema.js"
+    }
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
