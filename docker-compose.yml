@@ -25,6 +25,19 @@ services:
       timeout: 5s
       retries: 10
 
+  # One-shot: applies Drizzle migrations + TimescaleDB setup, then exits.
+  migrate:
+    build:
+      context: .
+      target: runtime
+    command: ["pnpm", "--filter", "@webmana/db", "migrate:run"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   api:
     build:
       context: .
@@ -42,6 +55,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
   worker:
     build:
@@ -56,6 +71,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
   mcp:
     build:
@@ -71,6 +88,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
   web:
     build:

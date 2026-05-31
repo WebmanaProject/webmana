@@ -1,32 +1,26 @@
 {
-  "name": "@webmana/db",
+  "name": "@webmana/connectors",
   "version": "0.0.0",
   "private": true,
-  "description": "Drizzle schema, migrations, and client for Webmana (PostgreSQL + TimescaleDB).",
-  "license": "AGPL-3.0-only",
+  "description": "Webmana connector SDK and built-in connectors.",
+  "license": "Apache-2.0",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
-    ".": "./src/index.ts",
-    "./schema": "./src/schema.ts"
+    ".": "./src/index.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "generate": "drizzle-kit generate",
-    "migrate": "drizzle-kit migrate",
-    "migrate:run": "node dist/migrate.js",
     "lint": "echo \"no lint configured\""
   },
   "dependencies": {
     "@webmana/contracts": "workspace:*",
-    "drizzle-orm": "^0.38.3",
-    "postgres": "^3.4.5"
+    "zod": "^3.24.1"
   },
   "devDependencies": {
     "@types/node": "^22.10.5",
-    "drizzle-kit": "^0.30.1",
     "typescript": "^5.7.3"
   }
 }
