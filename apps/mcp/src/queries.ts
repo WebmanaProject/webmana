@@ -1,10 +1,15 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { schema, type Database } from "@webmana/db";
+import { computeHealthBand, type HealthBand } from "@webmana/contracts";
+
+/** Events within this window count toward the live health band. */
+const HEALTH_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 export interface ProjectListItem {
   id: string;
   name: string;
   domain: string;
+  health: HealthBand;
   connectors: {
     connectorId: string;
     lastSyncStatus: string | null;
@@ -64,26 +69,57 @@ export async function listProjects(
   const ids = projectRows.map((p) => p.id);
   if (ids.length === 0) return [];
 
-  const connectorRows = await db
-    .select({
-      projectId: schema.connectorInstances.projectId,
-      connectorId: schema.connectorInstances.connectorId,
-      lastSyncStatus: schema.connectorInstances.lastSyncStatus,
-      lastSyncAt: schema.connectorInstances.lastSyncAt,
-    })
-    .from(schema.connectorInstances)
-    .where(inArray(schema.connectorInstances.projectId, ids));
+  const [connectorRows, eventRows] = await Promise.all([
+    db
+      .select({
+        projectId: schema.connectorInstances.projectId,
+        connectorId: schema.connectorInstances.connectorId,
+        lastSyncStatus: schema.connectorInstances.lastSyncStatus,
+        lastSyncAt: schema.connectorInstances.lastSyncAt,
+      })
+      .from(schema.connectorInstances)
+      .where(inArray(schema.connectorInstances.projectId, ids)),
+    db
+      .select({
+        projectId: schema.events.projectId,
+        severity: schema.events.severity,
+        occurredAt: schema.events.occurredAt,
+      })
+      .from(schema.events)
+      .where(inArray(schema.events.projectId, ids))
+      .orderBy(desc(schema.events.occurredAt))
+      .limit(500),
+  ]);
 
-  return projectRows.map((project) => ({
-    ...project,
-    connectors: connectorRows
+  const cutoff = Date.now() - HEALTH_WINDOW_MS;
+
+  return projectRows.map((project) => {
+    const connectors = connectorRows
       .filter((c) => c.projectId === project.id)
       .map((c) => ({
         connectorId: c.connectorId,
         lastSyncStatus: c.lastSyncStatus,
         lastSyncAt: c.lastSyncAt?.toISOString() ?? null,
-      })),
-  }));
+      }));
+
+    let recentCriticalCount = 0;
+    let recentWarningCount = 0;
+    for (const e of eventRows) {
+      if (e.projectId !== project.id || e.occurredAt.getTime() < cutoff) continue;
+      if (e.severity === "critical") recentCriticalCount += 1;
+      else if (e.severity === "warning") recentWarningCount += 1;
+    }
+
+    return {
+      ...project,
+      health: computeHealthBand({
+        connectors: connectors.map((c) => ({ lastSyncStatus: c.lastSyncStatus })),
+        recentCriticalCount,
+        recentWarningCount,
+      }),
+      connectors,
+    };
+  });
 }
 
 export async function getProject(
@@ -163,8 +199,22 @@ export async function getProject(
     });
   }
 
+  const cutoff = Date.now() - HEALTH_WINDOW_MS;
+  let recentCriticalCount = 0;
+  let recentWarningCount = 0;
+  for (const e of eventRows) {
+    if (e.occurredAt.getTime() < cutoff) continue;
+    if (e.severity === "critical") recentCriticalCount += 1;
+    else if (e.severity === "warning") recentWarningCount += 1;
+  }
+
   return {
     ...project,
+    health: computeHealthBand({
+      connectors: connectorRows.map((c) => ({ lastSyncStatus: c.lastSyncStatus })),
+      recentCriticalCount,
+      recentWarningCount,
+    }),
     connectors: connectorRows.map((c) => ({
       connectorId: c.connectorId,
       lastSyncStatus: c.lastSyncStatus,

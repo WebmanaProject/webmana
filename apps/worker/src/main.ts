@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { createDatabase, schema } from "@webmana/db";
 import { getConnector, type ConnectorRunContext } from "@webmana/connectors";
 import { decryptSecrets } from "@webmana/crypto";
+import { evaluateAlerts } from "./alerts.js";
 
 const connection = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379", {
   maxRetriesPerRequest: null,
@@ -132,6 +133,8 @@ async function runSync(connectorInstanceId: string): Promise<void> {
         })),
       );
     }
+
+    await evaluateAlerts(db, row.projectId, metrics, now);
 
     await db
       .update(schema.connectorInstances)

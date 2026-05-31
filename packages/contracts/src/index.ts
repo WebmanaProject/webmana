@@ -68,3 +68,27 @@ export type ConnectorSyncStatus = z.infer<typeof connectorSyncStatusSchema>;
 /** Health score buckets surfaced in the dashboard. */
 export const healthBandSchema = z.enum(["healthy", "degraded", "down", "unknown"]);
 export type HealthBand = z.infer<typeof healthBandSchema>;
+
+export interface HealthInput {
+  /** Latest sync status per connector instance on the project. */
+  connectors: { lastSyncStatus: string | null }[];
+  /** Count of critical events within the caller's "recent" window. */
+  recentCriticalCount: number;
+  /** Count of warning events within the caller's "recent" window. */
+  recentWarningCount: number;
+}
+
+/**
+ * Derive a project's health band from connector sync statuses and recent
+ * event severity. Pure and window-agnostic: the caller decides what "recent"
+ * means and passes the counts.
+ */
+export function computeHealthBand(input: HealthInput): HealthBand {
+  const statuses = input.connectors.map((c) => c.lastSyncStatus);
+  if (statuses.length === 0 || statuses.every((s) => s == null)) return "unknown";
+  if (statuses.includes("error") || input.recentCriticalCount > 0) return "down";
+  if (input.recentWarningCount > 0 || statuses.some((s) => s !== "ok")) {
+    return "degraded";
+  }
+  return "healthy";
+}

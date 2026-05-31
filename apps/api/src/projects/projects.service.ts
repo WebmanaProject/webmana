@@ -1,7 +1,11 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { desc, inArray } from "drizzle-orm";
 import { schema, type Database } from "@webmana/db";
+import { computeHealthBand, type HealthBand } from "@webmana/contracts";
 import { DATABASE } from "../db/db.module.js";
+
+/** Events within this window count toward the live health band. */
+const HEALTH_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 export interface ProjectMetric {
   connectorId: string;
@@ -31,6 +35,7 @@ export interface ProjectSummary {
   id: string;
   name: string;
   domain: string;
+  health: HealthBand;
   connectors: ProjectConnector[];
   metrics: ProjectMetric[];
   events: ProjectEvent[];
@@ -93,6 +98,8 @@ export class ProjectsService {
         .limit(200),
     ]);
 
+    const healthCutoff = Date.now() - HEALTH_WINDOW_MS;
+
     return projectRows.map((project) => {
       const connectors: ProjectConnector[] = connectorRows
         .filter((c) => c.projectId === project.id)
@@ -120,17 +127,30 @@ export class ProjectsService {
         });
       }
 
-      const events: ProjectEvent[] = eventRows
-        .filter((e) => e.projectId === project.id)
-        .slice(0, 10)
-        .map((e) => ({
-          severity: e.severity,
-          title: e.title,
-          description: e.description,
-          occurredAt: e.occurredAt.toISOString(),
-        }));
+      const projectEvents = eventRows.filter((e) => e.projectId === project.id);
 
-      return { ...project, connectors, metrics, events };
+      let recentCriticalCount = 0;
+      let recentWarningCount = 0;
+      for (const e of projectEvents) {
+        if (e.occurredAt.getTime() < healthCutoff) continue;
+        if (e.severity === "critical") recentCriticalCount += 1;
+        else if (e.severity === "warning") recentWarningCount += 1;
+      }
+
+      const health = computeHealthBand({
+        connectors: connectors.map((c) => ({ lastSyncStatus: c.lastSyncStatus })),
+        recentCriticalCount,
+        recentWarningCount,
+      });
+
+      const events: ProjectEvent[] = projectEvents.slice(0, 10).map((e) => ({
+        severity: e.severity,
+        title: e.title,
+        description: e.description,
+        occurredAt: e.occurredAt.toISOString(),
+      }));
+
+      return { ...project, health, connectors, metrics, events };
     });
   }
 }
