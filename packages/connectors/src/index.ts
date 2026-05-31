@@ -9,3 +9,4 @@ export { uptimeConnector } from "./builtin/uptime.js";
 export { dnsConnector } from "./builtin/dns.js";
 export { whoisConnector } from "./builtin/whois.js";
 export { pagespeedConnector } from "./builtin/pagespeed.js";
+export { uptimerobotConnector } from "./builtin/uptimerobot.js";
