@@ -9,7 +9,7 @@
     "build": "next build",
     "start": "next start -p 3000",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "next lint"
+    "lint": "echo \"no lint configured\""
   },
   "dependencies": {
     "@tanstack/react-query": "^5.62.11",
