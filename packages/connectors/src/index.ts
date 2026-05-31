@@ -16,3 +16,4 @@ export { observatoryConnector } from "./builtin/observatory.js";
 export { datadogConnector } from "./builtin/datadog.js";
 export { elasticsearchConnector } from "./builtin/elasticsearch.js";
 export { snykConnector } from "./builtin/snyk.js";
+export { awsCostConnector, signRequestV4 } from "./builtin/aws-cost.js";

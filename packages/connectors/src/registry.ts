@@ -12,6 +12,7 @@ import { observatoryConnector } from "./builtin/observatory.js";
 import { datadogConnector } from "./builtin/datadog.js";
 import { elasticsearchConnector } from "./builtin/elasticsearch.js";
 import { snykConnector } from "./builtin/snyk.js";
+import { awsCostConnector } from "./builtin/aws-cost.js";
 
 /** All connectors known to Webmana, keyed by id. */
 export const connectors = {
@@ -27,6 +28,7 @@ export const connectors = {
   datadog: datadogConnector,
   elasticsearch: elasticsearchConnector,
   snyk: snykConnector,
+  aws_cost: awsCostConnector,
 } satisfies Partial<Record<ConnectorId, Connector>>;
 
 export function getConnector(id: string): Connector | undefined {
