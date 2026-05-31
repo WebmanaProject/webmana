@@ -17,6 +17,10 @@ export const connectorIdSchema = z.enum([
   "uptimerobot",
   "ga4",
   "observatory",
+  "datadog",
+  "elasticsearch",
+  "snyk",
+  "aws_cost",
 ]);
 export type ConnectorId = z.infer<typeof connectorIdSchema>;
 

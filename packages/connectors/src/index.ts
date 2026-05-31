@@ -13,3 +13,4 @@ export { uptimerobotConnector } from "./builtin/uptimerobot.js";
 export { cloudflareConnector } from "./builtin/cloudflare.js";
 export { ga4Connector } from "./builtin/ga4.js";
 export { observatoryConnector } from "./builtin/observatory.js";
+export { datadogConnector } from "./builtin/datadog.js";
