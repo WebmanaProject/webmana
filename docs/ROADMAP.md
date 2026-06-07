@@ -47,5 +47,6 @@ Phased delivery. Each phase should be shippable and demoable on its own.
 - ✅ Project tags/grouping (client / environment / team).
 - ✅ SLA reporting (uptime over trailing windows). Exportable reports still TODO.
 - ✅ Cost anomaly detection in FinOps.
-- AI insights surfaced inside the dashboard (not just via MCP).
-- Optional write actions (post-MVP, behind RBAC).
+- ✅ AI insights surfaced inside the dashboard (not just via MCP).
+- Optional write actions (post-MVP, behind RBAC). **Intentionally deferred** —
+  conflicts with the read-only MVP guarantee.

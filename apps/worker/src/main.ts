@@ -6,6 +6,7 @@ import { getConnector, type ConnectorRunContext } from "@webmana/connectors";
 import { decryptSecrets } from "@webmana/crypto";
 import { evaluateAlerts } from "./alerts.js";
 import { detectCostAnomalies } from "./cost-anomaly.js";
+import { generateInsights, insightsIntervalMs, readAiConfig } from "./insights.js";
 
 const connection = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379", {
   maxRetriesPerRequest: null,
@@ -171,6 +172,11 @@ const worker = new Worker(
     }
     if (job.name === "sync") {
       await runSync(job.data.connectorInstanceId as string);
+      return;
+    }
+    if (job.name === "insights") {
+      const n = await generateInsights(db, new Date());
+      console.log(`[worker] generated ${n} insight(s)`);
     }
   },
   { connection },
@@ -186,6 +192,18 @@ worker.on("ready", async () => {
   );
   // Run one scan immediately on boot.
   await syncQueue.add("scan", {}, { jobId: "scan-boot", removeOnComplete: true });
+
+  // Scheduled AI insight generation (only when a provider key is configured).
+  if (readAiConfig()) {
+    const every = insightsIntervalMs();
+    await syncQueue.add("insights", {}, { repeat: { every }, jobId: "insights" });
+    await syncQueue.add(
+      "insights",
+      {},
+      { jobId: "insights-boot", removeOnComplete: true },
+    );
+    console.log(`Webmana AI insights enabled (every ${Math.round(every / 60000)}m)`);
+  }
 });
 
 worker.on("failed", (job, err) => {

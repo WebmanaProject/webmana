@@ -98,6 +98,19 @@ interface Connector {
 **Built-in connectors that need no external keys** (work right after `docker compose up`):
 SSL expiry, WHOIS, DNS, HTTP uptime. The first end-to-end reference connector is **SSL expiry**.
 
+## AI insights (optional)
+
+A scheduled worker job summarizes each project's recent metrics and events into
+a short natural-language health note using an LLM, and stores it in
+`project_insights`. This follows the same **poll → store → serve** rule: the
+model is called during the scheduled job, never during a UI/MCP/API request, so
+reads stay fast and deterministic.
+
+The provider is pluggable via env (`AI_PROVIDER` = `anthropic` or any
+OpenAI-compatible endpoint via `AI_BASE_URL`); the feature is fully disabled
+when `AI_API_KEY` is unset. Insights are exposed read-only through
+`GET /api/insights`, the MCP `get_project_insight` tool, and the dashboard.
+
 ## RBAC and MCP security
 
 - Roles: `admin` (manages connectors/users), `editor`, `viewer`.

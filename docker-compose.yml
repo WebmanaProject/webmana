@@ -74,6 +74,11 @@ services:
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_FROM: ${SMTP_FROM:-}
       COST_ANOMALY_THRESHOLD_PCT: ${COST_ANOMALY_THRESHOLD_PCT:-20}
+      AI_PROVIDER: ${AI_PROVIDER:-anthropic}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-}
+      AI_BASE_URL: ${AI_BASE_URL:-}
+      AI_INSIGHTS_INTERVAL_MS: ${AI_INSIGHTS_INTERVAL_MS:-}
     depends_on:
       postgres:
         condition: service_healthy

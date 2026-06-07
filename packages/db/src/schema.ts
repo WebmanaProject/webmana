@@ -93,6 +93,25 @@ export const projectTags = pgTable(
   (t) => [primaryKey({ columns: [t.projectId, t.tag] })],
 );
 
+/** AI-generated natural-language summaries, produced during scheduled syncs. */
+export const projectInsights = pgTable(
+  "project_insights",
+  {
+    id: id(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    /** The generated summary text. */
+    summary: text("summary").notNull(),
+    /** Model identifier that produced the summary, e.g. "claude-3-5-haiku". */
+    model: text("model").notNull(),
+    generatedAt: timestamp("generated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("project_insights_project_time_idx").on(t.projectId, t.generatedAt)],
+);
+
 /* ----------------------------------------------------------- Connectors ---- */
 
 export const connectorInstances = pgTable(

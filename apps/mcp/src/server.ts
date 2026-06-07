@@ -4,6 +4,7 @@ import type { Role } from "@webmana/contracts";
 import type { Database } from "@webmana/db";
 import {
   getProject,
+  getProjectInsight,
   getSlaReport,
   listProjects,
   listRecentEvents,
@@ -64,6 +65,19 @@ export function createMcpServer(ctx: McpContext): McpServer {
     { windowDays: z.number().int().min(1).max(365).optional() },
     async ({ windowDays }) =>
       json(await getSlaReport(ctx.db, ctx.organizationId, windowDays)),
+  );
+
+  server.tool(
+    "get_project_insight",
+    "Get the latest AI-generated health summary for a project (model + timestamp). Returns an error object when none has been generated.",
+    { projectId: z.string().uuid() },
+    async ({ projectId }) => {
+      const insight = await getProjectInsight(ctx.db, ctx.organizationId, projectId);
+      if (!insight) {
+        return json({ error: "no insight available for this project yet" });
+      }
+      return json(insight);
+    },
   );
 
   return server;

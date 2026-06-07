@@ -5,9 +5,17 @@ import { ProjectsModule } from "./projects/projects.module.js";
 import { TimelineModule } from "./timeline/timeline.module.js";
 import { StatusModule } from "./status/status.module.js";
 import { SlaModule } from "./sla/sla.module.js";
+import { InsightsModule } from "./insights/insights.module.js";
 
 @Module({
-  imports: [DbModule, ProjectsModule, TimelineModule, StatusModule, SlaModule],
+  imports: [
+    DbModule,
+    ProjectsModule,
+    TimelineModule,
+    StatusModule,
+    SlaModule,
+    InsightsModule,
+  ],
   controllers: [HealthController],
 })
 export class AppModule {}

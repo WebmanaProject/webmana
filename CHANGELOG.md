@@ -18,6 +18,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **FinOps cost anomaly detection**: the worker raises a warning event when
   AWS month-to-date spend exceeds the previous month's total beyond
   `COST_ANOMALY_THRESHOLD_PCT` (default 20%), deduped per project per month.
+- **AI insights**: optional, provider-agnostic (Anthropic or any
+  OpenAI-compatible endpoint) project health summaries. Generated on a
+  schedule in the worker (poll→store→serve — never at request time), stored in
+  `project_insights`, and surfaced via `GET /api/insights`, the MCP
+  `get_project_insight` tool, and an AI summary card on the dashboard. Disabled
+  cleanly when `AI_API_KEY` is unset.
 
 ## [0.1.0] - 2026-06-01
 

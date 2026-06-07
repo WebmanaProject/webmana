@@ -329,6 +329,51 @@ export async function getSlaReport(
   return { windowDays: days, from: from.toISOString(), projects };
 }
 
+export interface ProjectInsight {
+  projectId: string;
+  summary: string;
+  model: string;
+  generatedAt: string;
+}
+
+/** Latest AI insight for one project, scoped to the org. Null when none/unseen. */
+export async function getProjectInsight(
+  db: Database,
+  organizationId: string,
+  projectId: string,
+): Promise<ProjectInsight | null> {
+  const [project] = await db
+    .select({ id: schema.projects.id })
+    .from(schema.projects)
+    .where(
+      and(
+        eq(schema.projects.id, projectId),
+        eq(schema.projects.organizationId, organizationId),
+      ),
+    )
+    .limit(1);
+  if (!project) return null;
+
+  const [insight] = await db
+    .select({
+      summary: schema.projectInsights.summary,
+      model: schema.projectInsights.model,
+      generatedAt: schema.projectInsights.generatedAt,
+    })
+    .from(schema.projectInsights)
+    .where(eq(schema.projectInsights.projectId, projectId))
+    .orderBy(desc(schema.projectInsights.generatedAt))
+    .limit(1);
+  if (!insight) return null;
+
+  return {
+    projectId,
+    summary: insight.summary,
+    model: insight.model,
+    generatedAt: insight.generatedAt.toISOString(),
+  };
+}
+
 export async function listRecentEvents(
   db: Database,
   organizationId: string,

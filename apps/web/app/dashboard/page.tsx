@@ -32,6 +32,13 @@ interface ProjectSummary {
   events: ProjectEvent[];
 }
 
+interface ProjectInsight {
+  projectId: string;
+  summary: string | null;
+  model: string | null;
+  generatedAt: string | null;
+}
+
 const API_URL = process.env.API_URL ?? "http://localhost:4000";
 
 async function getProjects(tag?: string): Promise<ProjectSummary[] | null> {
@@ -44,6 +51,17 @@ async function getProjects(tag?: string): Promise<ProjectSummary[] | null> {
     return (await res.json()) as ProjectSummary[];
   } catch {
     return null;
+  }
+}
+
+async function getInsights(): Promise<Map<string, ProjectInsight>> {
+  try {
+    const res = await fetch(`${API_URL}/api/insights`, { cache: "no-store" });
+    if (!res.ok) return new Map();
+    const rows = (await res.json()) as ProjectInsight[];
+    return new Map(rows.filter((r) => r.summary).map((r) => [r.projectId, r]));
+  } catch {
+    return new Map();
   }
 }
 
@@ -77,7 +95,10 @@ export default async function DashboardPage({
   searchParams: Promise<{ tag?: string }>;
 }) {
   const { tag: activeTag } = await searchParams;
-  const projects = await getProjects(activeTag);
+  const [projects, insights] = await Promise.all([
+    getProjects(activeTag),
+    getInsights(),
+  ]);
 
   // All tags seen across the returned projects, for the filter bar.
   const allTags = Array.from(
@@ -176,6 +197,15 @@ export default async function DashboardPage({
                   </div>
                 )}
               </div>
+
+              {insights.get(project.id)?.summary && (
+                <div className="rounded-lg border border-accent/40 bg-accent/5 p-3">
+                  <div className="mb-1 flex items-center gap-1.5 text-xs font-medium text-accent-strong">
+                    <span aria-hidden>✦</span> AI summary
+                  </div>
+                  <p className="text-sm text-text">{insights.get(project.id)!.summary}</p>
+                </div>
+              )}
 
               <div className="flex flex-col gap-2">
                 {project.metrics.length === 0 ? (
