@@ -73,6 +73,7 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_FROM: ${SMTP_FROM:-}
+      COST_ANOMALY_THRESHOLD_PCT: ${COST_ANOMALY_THRESHOLD_PCT:-20}
     depends_on:
       postgres:
         condition: service_healthy

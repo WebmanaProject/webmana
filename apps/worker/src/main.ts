@@ -5,6 +5,7 @@ import { createDatabase, schema } from "@webmana/db";
 import { getConnector, type ConnectorRunContext } from "@webmana/connectors";
 import { decryptSecrets } from "@webmana/crypto";
 import { evaluateAlerts } from "./alerts.js";
+import { detectCostAnomalies } from "./cost-anomaly.js";
 
 const connection = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379", {
   maxRetriesPerRequest: null,
@@ -134,6 +135,7 @@ async function runSync(connectorInstanceId: string): Promise<void> {
       );
     }
 
+    await detectCostAnomalies(db, row.projectId, metrics, now);
     await evaluateAlerts(db, row.projectId, metrics, now);
 
     await db
