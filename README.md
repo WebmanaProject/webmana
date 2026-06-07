@@ -7,7 +7,9 @@ WHOIS, DNS, Datadog, Snyk, AWS Cost Explorer, and more) for all your projects in
 dashboard, and exposes it to AI clients (e.g. Cursor) over the Model Context Protocol.
 Built for **solo founders running many domains** (target: ~10–30).
 
-The MVP is **read-only**: it visualizes data and sends alerts, it does not modify resources.
+Projects and connectors are managed from a built-in admin UI (`/manage`); the
+dashboard, MCP server, and public status page remain read-only views over the
+collected data.
 
 > Status: **v0.1.0.** See [CHANGELOG.md](CHANGELOG.md) and [docs/ROADMAP.md](docs/ROADMAP.md).
 

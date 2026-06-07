@@ -6,6 +6,7 @@ import { TimelineModule } from "./timeline/timeline.module.js";
 import { StatusModule } from "./status/status.module.js";
 import { SlaModule } from "./sla/sla.module.js";
 import { InsightsModule } from "./insights/insights.module.js";
+import { ManageModule } from "./manage/manage.module.js";
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { InsightsModule } from "./insights/insights.module.js";
     StatusModule,
     SlaModule,
     InsightsModule,
+    ManageModule,
   ],
   controllers: [HealthController],
 })

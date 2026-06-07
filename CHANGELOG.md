@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Management UI / write actions**: a `/manage` page and `/api/manage/*`
+  endpoints to create, edit, and delete projects (with tags) and to add,
+  enable/disable, and remove connectors per project. Connector API keys are
+  encrypted at rest (AES-256-GCM) and never returned in plaintext. This is the
+  first set of write actions — the dashboard, MCP, and public status surfaces
+  remain read-only.
+
 - **Project tags**: `project_tags` surfaced through the read path — `tags[]`
   on `/api/projects` with `?tag=` filtering, the MCP `list_projects`/`get_project`
   tools, and tag chips plus a filter bar on the dashboard.

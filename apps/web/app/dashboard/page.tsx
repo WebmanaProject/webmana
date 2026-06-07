@@ -115,6 +115,9 @@ export default async function DashboardPage({
           </p>
         </div>
         <nav className="flex items-center gap-4 text-sm">
+          <a href="/manage" className="text-accent-strong hover:underline">
+            Manage
+          </a>
           <a href="/sla" className="text-accent-strong hover:underline">
             SLA report
           </a>

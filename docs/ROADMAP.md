@@ -48,5 +48,6 @@ Phased delivery. Each phase should be shippable and demoable on its own.
 - ✅ SLA reporting (uptime over trailing windows). Exportable reports still TODO.
 - ✅ Cost anomaly detection in FinOps.
 - ✅ AI insights surfaced inside the dashboard (not just via MCP).
-- Optional write actions (post-MVP, behind RBAC). **Intentionally deferred** —
-  conflicts with the read-only MVP guarantee.
+- ✅ Management UI (write actions): create/edit/delete projects + connectors via
+  `/manage`. Read surfaces (dashboard, MCP, status page) stay read-only.
+  RBAC enforcement on these endpoints is still TODO (single-org MVP for now).
