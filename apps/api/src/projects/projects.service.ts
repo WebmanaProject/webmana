@@ -35,6 +35,7 @@ export interface ProjectSummary {
   id: string;
   name: string;
   domain: string;
+  tags: string[];
   health: HealthBand;
   connectors: ProjectConnector[];
   metrics: ProjectMetric[];
@@ -45,7 +46,10 @@ export interface ProjectSummary {
 export class ProjectsService {
   constructor(@Inject(DATABASE) private readonly db: Database) {}
 
-  async listProjects(): Promise<ProjectSummary[]> {
+  /**
+   * @param filterTag When set, only projects carrying this tag are returned.
+   */
+  async listProjects(filterTag?: string): Promise<ProjectSummary[]> {
     const projectRows = await this.db
       .select({
         id: schema.projects.id,
@@ -58,7 +62,14 @@ export class ProjectsService {
     const ids = projectRows.map((p) => p.id);
     if (ids.length === 0) return [];
 
-    const [connectorRows, metricRows, eventRows] = await Promise.all([
+    const [tagRows, connectorRows, metricRows, eventRows] = await Promise.all([
+      this.db
+        .select({
+          projectId: schema.projectTags.projectId,
+          tag: schema.projectTags.tag,
+        })
+        .from(schema.projectTags)
+        .where(inArray(schema.projectTags.projectId, ids)),
       this.db
         .select({
           projectId: schema.connectorInstances.projectId,
@@ -99,8 +110,14 @@ export class ProjectsService {
     ]);
 
     const healthCutoff = Date.now() - HEALTH_WINDOW_MS;
+    const normalizedFilter = filterTag?.trim().toLowerCase();
 
-    return projectRows.map((project) => {
+    const summaries = projectRows.map((project) => {
+      const tags = tagRows
+        .filter((t) => t.projectId === project.id)
+        .map((t) => t.tag)
+        .sort((a, b) => a.localeCompare(b));
+
       const connectors: ProjectConnector[] = connectorRows
         .filter((c) => c.projectId === project.id)
         .map((c) => ({
@@ -150,7 +167,12 @@ export class ProjectsService {
         occurredAt: e.occurredAt.toISOString(),
       }));
 
-      return { ...project, health, connectors, metrics, events };
+      return { ...project, tags, health, connectors, metrics, events };
     });
+
+    if (!normalizedFilter) return summaries;
+    return summaries.filter((p) =>
+      p.tags.some((t) => t.toLowerCase() === normalizedFilter),
+    );
   }
 }

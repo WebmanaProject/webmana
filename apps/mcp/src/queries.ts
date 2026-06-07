@@ -9,6 +9,7 @@ export interface ProjectListItem {
   id: string;
   name: string;
   domain: string;
+  tags: string[];
   health: HealthBand;
   connectors: {
     connectorId: string;
@@ -55,6 +56,7 @@ async function projectIdsForOrg(db: Database, organizationId: string): Promise<s
 export async function listProjects(
   db: Database,
   organizationId: string,
+  filterTag?: string,
 ): Promise<ProjectListItem[]> {
   const projectRows = await db
     .select({
@@ -69,7 +71,14 @@ export async function listProjects(
   const ids = projectRows.map((p) => p.id);
   if (ids.length === 0) return [];
 
-  const [connectorRows, eventRows] = await Promise.all([
+  const [tagRows, connectorRows, eventRows] = await Promise.all([
+    db
+      .select({
+        projectId: schema.projectTags.projectId,
+        tag: schema.projectTags.tag,
+      })
+      .from(schema.projectTags)
+      .where(inArray(schema.projectTags.projectId, ids)),
     db
       .select({
         projectId: schema.connectorInstances.projectId,
@@ -92,8 +101,14 @@ export async function listProjects(
   ]);
 
   const cutoff = Date.now() - HEALTH_WINDOW_MS;
+  const normalizedFilter = filterTag?.trim().toLowerCase();
 
-  return projectRows.map((project) => {
+  const items = projectRows.map((project) => {
+    const tags = tagRows
+      .filter((t) => t.projectId === project.id)
+      .map((t) => t.tag)
+      .sort((a, b) => a.localeCompare(b));
+
     const connectors = connectorRows
       .filter((c) => c.projectId === project.id)
       .map((c) => ({
@@ -112,6 +127,7 @@ export async function listProjects(
 
     return {
       ...project,
+      tags,
       health: computeHealthBand({
         connectors: connectors.map((c) => ({ lastSyncStatus: c.lastSyncStatus })),
         recentCriticalCount,
@@ -120,6 +136,9 @@ export async function listProjects(
       connectors,
     };
   });
+
+  if (!normalizedFilter) return items;
+  return items.filter((p) => p.tags.some((t) => t.toLowerCase() === normalizedFilter));
 }
 
 export async function getProject(
@@ -144,7 +163,11 @@ export async function getProject(
 
   if (!project) return null;
 
-  const [connectorRows, metricRows, eventRows] = await Promise.all([
+  const [tagRows, connectorRows, metricRows, eventRows] = await Promise.all([
+    db
+      .select({ tag: schema.projectTags.tag })
+      .from(schema.projectTags)
+      .where(eq(schema.projectTags.projectId, projectId)),
     db
       .select({
         connectorId: schema.connectorInstances.connectorId,
@@ -210,6 +233,7 @@ export async function getProject(
 
   return {
     ...project,
+    tags: tagRows.map((t) => t.tag).sort((a, b) => a.localeCompare(b)),
     health: computeHealthBand({
       connectors: connectorRows.map((c) => ({ lastSyncStatus: c.lastSyncStatus })),
       recentCriticalCount,

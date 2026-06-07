@@ -26,6 +26,7 @@ interface ProjectSummary {
   id: string;
   name: string;
   domain: string;
+  tags: string[];
   connectors: ProjectConnector[];
   metrics: ProjectMetric[];
   events: ProjectEvent[];
@@ -33,9 +34,12 @@ interface ProjectSummary {
 
 const API_URL = process.env.API_URL ?? "http://localhost:4000";
 
-async function getProjects(): Promise<ProjectSummary[] | null> {
+async function getProjects(tag?: string): Promise<ProjectSummary[] | null> {
   try {
-    const res = await fetch(`${API_URL}/api/projects`, { cache: "no-store" });
+    const url = tag
+      ? `${API_URL}/api/projects?tag=${encodeURIComponent(tag)}`
+      : `${API_URL}/api/projects`;
+    const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) return null;
     return (await res.json()) as ProjectSummary[];
   } catch {
@@ -67,8 +71,18 @@ function formatMetric(m: ProjectMetric): string {
   return m.unit ? `${value} ${m.unit}` : `${value}`;
 }
 
-export default async function DashboardPage() {
-  const projects = await getProjects();
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tag?: string }>;
+}) {
+  const { tag: activeTag } = await searchParams;
+  const projects = await getProjects(activeTag);
+
+  // All tags seen across the returned projects, for the filter bar.
+  const allTags = Array.from(
+    new Set((projects ?? []).flatMap((p) => p.tags)),
+  ).sort((a, b) => a.localeCompare(b));
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-12">
@@ -84,13 +98,54 @@ export default async function DashboardPage() {
         </a>
       </header>
 
+      {(allTags.length > 0 || activeTag) && (
+        <div className="mb-8 flex flex-wrap items-center gap-2">
+          <span className="text-sm text-text-muted">Filter by tag:</span>
+          <a
+            href="/dashboard"
+            className={`rounded-full border px-3 py-1 text-xs ${
+              activeTag
+                ? "border-border bg-surface text-text-muted hover:border-accent"
+                : "border-accent bg-accent text-accent-ink"
+            }`}
+          >
+            All
+          </a>
+          {(activeTag && !allTags.includes(activeTag)
+            ? [activeTag, ...allTags]
+            : allTags
+          ).map((tag) => (
+            <a
+              key={tag}
+              href={`/dashboard?tag=${encodeURIComponent(tag)}`}
+              className={`rounded-full border px-3 py-1 text-xs ${
+                activeTag === tag
+                  ? "border-accent bg-accent text-accent-ink"
+                  : "border-border bg-surface text-text-muted hover:border-accent"
+              }`}
+            >
+              {tag}
+            </a>
+          ))}
+        </div>
+      )}
+
       {projects === null ? (
         <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-700">
           Could not reach the API at <code>{API_URL}</code>. Is the stack running?
         </div>
       ) : projects.length === 0 ? (
         <div className="rounded-2xl border border-border bg-bg-subtle p-8 text-center text-text-muted">
-          No projects yet. Add a project and a connector to start collecting data.
+          {activeTag ? (
+            <>
+              No projects tagged <span className="font-medium">{activeTag}</span>.{" "}
+              <a href="/dashboard" className="text-accent-strong hover:underline">
+                Clear filter
+              </a>
+            </>
+          ) : (
+            "No projects yet. Add a project and a connector to start collecting data."
+          )}
         </div>
       ) : (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -102,6 +157,19 @@ export default async function DashboardPage() {
               <div>
                 <h2 className="text-lg font-semibold">{project.name}</h2>
                 <p className="font-mono text-sm text-text-muted">{project.domain}</p>
+                {project.tags.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {project.tags.map((tag) => (
+                      <a
+                        key={tag}
+                        href={`/dashboard?tag=${encodeURIComponent(tag)}`}
+                        className="rounded-full border border-border bg-bg-subtle px-2 py-0.5 text-xs text-text-muted hover:border-accent"
+                      >
+                        {tag}
+                      </a>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="flex flex-col gap-2">

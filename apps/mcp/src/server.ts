@@ -20,13 +20,13 @@ function json(value: unknown) {
 
 /** Builds an MCP server exposing read-only Webmana data scoped to one org. */
 export function createMcpServer(ctx: McpContext): McpServer {
-  const server = new McpServer({ name: "webmana", version: "0.0.0" });
+  const server = new McpServer({ name: "webmana", version: "0.1.0" });
 
   server.tool(
     "list_projects",
-    "List all projects (domains) visible to this token, each with its connector sync status.",
-    {},
-    async () => json(await listProjects(ctx.db, ctx.organizationId)),
+    "List all projects (domains) visible to this token, each with its tags and connector sync status. Optionally filter by tag.",
+    { tag: z.string().min(1).optional() },
+    async ({ tag }) => json(await listProjects(ctx.db, ctx.organizationId, tag)),
   );
 
   server.tool(
