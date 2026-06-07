@@ -93,9 +93,14 @@ export default async function DashboardPage({
             Your projects at a glance — collected by Webmana connectors.
           </p>
         </div>
-        <a href="/" className="text-sm text-accent-strong hover:underline">
-          ← Home
-        </a>
+        <nav className="flex items-center gap-4 text-sm">
+          <a href="/sla" className="text-accent-strong hover:underline">
+            SLA report
+          </a>
+          <a href="/" className="text-accent-strong hover:underline">
+            ← Home
+          </a>
+        </nav>
       </header>
 
       {(allTags.length > 0 || activeTag) && (

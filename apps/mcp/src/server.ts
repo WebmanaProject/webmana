@@ -2,7 +2,12 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { Role } from "@webmana/contracts";
 import type { Database } from "@webmana/db";
-import { getProject, listProjects, listRecentEvents } from "./queries.js";
+import {
+  getProject,
+  getSlaReport,
+  listProjects,
+  listRecentEvents,
+} from "./queries.js";
 
 export interface McpContext {
   db: Database;
@@ -51,6 +56,14 @@ export function createMcpServer(ctx: McpContext): McpServer {
     },
     async ({ severity, limit }) =>
       json(await listRecentEvents(ctx.db, ctx.organizationId, { severity, limit })),
+  );
+
+  server.tool(
+    "get_sla_report",
+    "Uptime SLA per visible project over a trailing window: uptime percentage, sample count, and down samples. windowDays defaults to 30 (max 365).",
+    { windowDays: z.number().int().min(1).max(365).optional() },
+    async ({ windowDays }) =>
+      json(await getSlaReport(ctx.db, ctx.organizationId, windowDays)),
   );
 
   return server;

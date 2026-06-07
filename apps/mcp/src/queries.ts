@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, avg, count, desc, eq, gte, inArray, min, sql } from "drizzle-orm";
 import { schema, type Database } from "@webmana/db";
 import { computeHealthBand, type HealthBand } from "@webmana/contracts";
 
@@ -254,6 +254,79 @@ export async function getProject(
       connectorId: e.connectorId,
     })),
   };
+}
+
+export interface ProjectSla {
+  projectId: string;
+  name: string;
+  domain: string;
+  uptimePercent: number | null;
+  samples: number;
+  downSamples: number;
+  since: string | null;
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Uptime SLA per project over a trailing window (default 30 days, max 365). */
+export async function getSlaReport(
+  db: Database,
+  organizationId: string,
+  windowDays?: number,
+): Promise<{ windowDays: number; from: string; projects: ProjectSla[] }> {
+  const days = Math.min(Math.max(Math.floor(windowDays ?? 30), 1), 365);
+  const from = new Date(Date.now() - days * DAY_MS);
+
+  const projectRows = await db
+    .select({
+      id: schema.projects.id,
+      name: schema.projects.name,
+      domain: schema.projects.domain,
+    })
+    .from(schema.projects)
+    .where(eq(schema.projects.organizationId, organizationId))
+    .orderBy(schema.projects.name);
+
+  const ids = projectRows.map((p) => p.id);
+  if (ids.length === 0) {
+    return { windowDays: days, from: from.toISOString(), projects: [] };
+  }
+
+  const uptimeRows = await db
+    .select({
+      projectId: schema.metrics.projectId,
+      samples: count(),
+      avgUp: avg(schema.metrics.value),
+      downSamples: sql<number>`count(*) filter (where ${schema.metrics.value} = 0)`,
+      since: min(schema.metrics.observedAt),
+    })
+    .from(schema.metrics)
+    .where(
+      and(
+        inArray(schema.metrics.projectId, ids),
+        eq(schema.metrics.name, "uptime.up"),
+        gte(schema.metrics.observedAt, from),
+      ),
+    )
+    .groupBy(schema.metrics.projectId);
+
+  const byId = new Map(uptimeRows.map((r) => [r.projectId, r]));
+
+  const projects: ProjectSla[] = projectRows.map((p) => {
+    const u = byId.get(p.id);
+    const avgUp = u?.avgUp != null ? Number(u.avgUp) : null;
+    return {
+      projectId: p.id,
+      name: p.name,
+      domain: p.domain,
+      uptimePercent: avgUp != null ? Math.round(avgUp * 100 * 1000) / 1000 : null,
+      samples: u ? Number(u.samples) : 0,
+      downSamples: u ? Number(u.downSamples) : 0,
+      since: u?.since ? u.since.toISOString() : null,
+    };
+  });
+
+  return { windowDays: days, from: from.toISOString(), projects };
 }
 
 export async function listRecentEvents(
