@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Project tags**: `project_tags` surfaced through the read path — `tags[]`
+  on `/api/projects` with `?tag=` filtering, the MCP `list_projects`/`get_project`
+  tools, and tag chips plus a filter bar on the dashboard.
+- **SLA reporting**: per-project uptime SLA over a trailing window —
+  `GET /api/sla` (`windowDays`, `projectId`), an MCP `get_sla_report` tool, and
+  a `/sla` report page with a 7/30/90-day switcher.
+- **FinOps cost anomaly detection**: the worker raises a warning event when
+  AWS month-to-date spend exceeds the previous month's total beyond
+  `COST_ANOMALY_THRESHOLD_PCT` (default 20%), deduped per project per month.
+
 ## [0.1.0] - 2026-06-01
 
 First public release — a read-only, self-hosted multi-domain monitoring
