@@ -1,152 +1,156 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/?$/, "") ?? "http://localhost:4000";
+
+type ProjectStatus =
+  | "idea"
+  | "in_progress"
+  | "rebuild"
+  | "live"
+  | "paused"
+  | "archived";
+
 interface ProjectMetric {
   connectorId: string;
   kind: string;
   name: string;
   value: number;
   unit: string | null;
-  labels: Record<string, unknown> | null;
-  observedAt: string;
 }
 
 interface ProjectConnector {
   connectorId: string;
   lastSyncStatus: string | null;
-  lastSyncAt: string | null;
-  lastSyncError: string | null;
-}
-
-interface ProjectEvent {
-  severity: string;
-  title: string;
-  description: string | null;
-  occurredAt: string;
 }
 
 interface ProjectSummary {
   id: string;
   name: string;
   domain: string | null;
+  status: ProjectStatus;
+  description: string | null;
+  links: Record<string, string>;
   tags: string[];
+  health: "healthy" | "degraded" | "down" | "unknown";
   connectors: ProjectConnector[];
   metrics: ProjectMetric[];
-  events: ProjectEvent[];
 }
 
 interface ProjectInsight {
   projectId: string;
   summary: string | null;
-  model: string | null;
-  generatedAt: string | null;
 }
 
-const API_URL = process.env.API_URL ?? "http://localhost:4000";
+/** Columns in display order with labels and accent colors. */
+const COLUMNS: { status: ProjectStatus; label: string; accent: string }[] = [
+  { status: "idea", label: "💡 Idea", accent: "border-t-slate-300" },
+  { status: "in_progress", label: "🚧 In progress", accent: "border-t-amber-400" },
+  { status: "rebuild", label: "🔧 Rebuild", accent: "border-t-orange-400" },
+  { status: "live", label: "✅ Live", accent: "border-t-accent" },
+  { status: "paused", label: "⏸ Paused", accent: "border-t-slate-400" },
+  { status: "archived", label: "📦 Archived", accent: "border-t-slate-300" },
+];
 
-async function getProjects(tag?: string): Promise<ProjectSummary[] | null> {
-  try {
-    const url = tag
-      ? `${API_URL}/api/projects?tag=${encodeURIComponent(tag)}`
-      : `${API_URL}/api/projects`;
-    const res = await fetch(url, { cache: "no-store" });
-    if (!res.ok) return null;
-    return (await res.json()) as ProjectSummary[];
-  } catch {
-    return null;
+const HEALTH_META: Record<
+  ProjectSummary["health"],
+  { label: string; cls: string }
+> = {
+  healthy: { label: "Healthy", cls: "bg-accent/15 text-accent-strong" },
+  degraded: { label: "Degraded", cls: "bg-amber-100 text-amber-700" },
+  down: { label: "Down", cls: "bg-red-100 text-red-700" },
+  unknown: { label: "Unknown", cls: "bg-bg-subtle text-text-muted" },
+};
+
+export default function DashboardPage() {
+  const [projects, setProjects] = useState<ProjectSummary[]>([]);
+  const [insights, setInsights] = useState<Map<string, string>>(new Map());
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [activeTag, setActiveTag] = useState<string | null>(null);
+
+  const reload = useCallback(async () => {
+    setError(null);
+    try {
+      const [pRes, iRes] = await Promise.all([
+        fetch(`${API_URL}/api/projects`, { cache: "no-store" }),
+        fetch(`${API_URL}/api/insights`, { cache: "no-store" }),
+      ]);
+      if (!pRes.ok) throw new Error(`API ${pRes.status}`);
+      setProjects((await pRes.json()) as ProjectSummary[]);
+      if (iRes.ok) {
+        const rows = (await iRes.json()) as ProjectInsight[];
+        setInsights(
+          new Map(rows.filter((r) => r.summary).map((r) => [r.projectId, r.summary!])),
+        );
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void reload();
+  }, [reload]);
+
+  async function changeStatus(id: string, status: ProjectStatus) {
+    // Optimistic update, then persist.
+    setProjects((prev) => prev.map((p) => (p.id === id ? { ...p, status } : p)));
+    try {
+      await fetch(`${API_URL}/api/manage/projects/${id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+    } catch {
+      void reload();
+    }
   }
-}
 
-async function getInsights(): Promise<Map<string, ProjectInsight>> {
-  try {
-    const res = await fetch(`${API_URL}/api/insights`, { cache: "no-store" });
-    if (!res.ok) return new Map();
-    const rows = (await res.json()) as ProjectInsight[];
-    return new Map(rows.filter((r) => r.summary).map((r) => [r.projectId, r]));
-  } catch {
-    return new Map();
-  }
-}
+  const allTags = useMemo(
+    () => Array.from(new Set(projects.flatMap((p) => p.tags))).sort((a, b) => a.localeCompare(b)),
+    [projects],
+  );
 
-function sslBandClass(days: number): string {
-  if (days < 0) return "text-red-600";
-  if (days <= 14) return "text-amber-600";
-  return "text-accent-strong";
-}
-
-function severityClass(severity: string): string {
-  if (severity === "critical") return "bg-red-50 text-red-700 border-red-200";
-  if (severity === "warning") return "bg-amber-50 text-amber-700 border-amber-200";
-  return "bg-bg-subtle text-text-muted border-border";
-}
-
-function statusDot(status: string | null): string {
-  if (status === "ok") return "bg-accent";
-  if (status === "error") return "bg-red-500";
-  if (status === "running") return "bg-amber-400";
-  return "bg-border";
-}
-
-function formatMetric(m: ProjectMetric): string {
-  const value = Number.isInteger(m.value) ? m.value : m.value.toFixed(2);
-  return m.unit ? `${value} ${m.unit}` : `${value}`;
-}
-
-export default async function DashboardPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ tag?: string }>;
-}) {
-  const { tag: activeTag } = await searchParams;
-  const [projects, insights] = await Promise.all([
-    getProjects(activeTag),
-    getInsights(),
-  ]);
-
-  // All tags seen across the returned projects, for the filter bar.
-  const allTags = Array.from(
-    new Set((projects ?? []).flatMap((p) => p.tags)),
-  ).sort((a, b) => a.localeCompare(b));
+  const visible = activeTag
+    ? projects.filter((p) => p.tags.includes(activeTag))
+    : projects;
 
   return (
-    <main className="mx-auto max-w-6xl px-6 py-12">
-      <header className="mb-10 flex items-end justify-between">
+    <main className="mx-auto max-w-[1400px] px-6 py-10">
+      <header className="mb-8 flex items-end justify-between">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Dashboard</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">Portfolio</h1>
           <p className="mt-1 text-text-muted">
-            Your projects at a glance — collected by Webmana connectors.
+            All your projects across their lifecycle. Change status from the card.
           </p>
         </div>
         <nav className="flex items-center gap-4 text-sm">
-          <a href="/manage" className="text-accent-strong hover:underline">
-            Manage
-          </a>
-          <a href="/sla" className="text-accent-strong hover:underline">
-            SLA report
-          </a>
-          <a href="/" className="text-accent-strong hover:underline">
-            ← Home
-          </a>
+          <a href="/manage" className="text-accent-strong hover:underline">Manage</a>
+          <a href="/sla" className="text-accent-strong hover:underline">SLA report</a>
+          <a href="/" className="text-accent-strong hover:underline">← Home</a>
         </nav>
       </header>
 
-      {(allTags.length > 0 || activeTag) && (
-        <div className="mb-8 flex flex-wrap items-center gap-2">
+      {allTags.length > 0 && (
+        <div className="mb-6 flex flex-wrap items-center gap-2">
           <span className="text-sm text-text-muted">Filter by tag:</span>
-          <a
-            href="/dashboard"
+          <button
+            onClick={() => setActiveTag(null)}
             className={`rounded-full border px-3 py-1 text-xs ${
-              activeTag
-                ? "border-border bg-surface text-text-muted hover:border-accent"
-                : "border-accent bg-accent text-accent-ink"
+              activeTag ? "border-border bg-surface text-text-muted" : "border-accent bg-accent text-accent-ink"
             }`}
           >
             All
-          </a>
-          {(activeTag && !allTags.includes(activeTag)
-            ? [activeTag, ...allTags]
-            : allTags
-          ).map((tag) => (
-            <a
+          </button>
+          {allTags.map((tag) => (
+            <button
               key={tag}
-              href={`/dashboard?tag=${encodeURIComponent(tag)}`}
+              onClick={() => setActiveTag(tag)}
               className={`rounded-full border px-3 py-1 text-xs ${
                 activeTag === tag
                   ? "border-accent bg-accent text-accent-ink"
@@ -154,113 +158,123 @@ export default async function DashboardPage({
               }`}
             >
               {tag}
-            </a>
+            </button>
           ))}
         </div>
       )}
 
-      {projects === null ? (
+      {error ? (
         <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-700">
-          Could not reach the API at <code>{API_URL}</code>. Is the stack running?
+          Could not reach the API at <code>{API_URL}</code>. Is the stack running? ({error})
         </div>
-      ) : projects.length === 0 ? (
-        <div className="rounded-2xl border border-border bg-bg-subtle p-8 text-center text-text-muted">
-          {activeTag ? (
-            <>
-              No projects tagged <span className="font-medium">{activeTag}</span>.{" "}
-              <a href="/dashboard" className="text-accent-strong hover:underline">
-                Clear filter
-              </a>
-            </>
-          ) : (
-            "No projects yet. Add a project and a connector to start collecting data."
-          )}
-        </div>
+      ) : loading ? (
+        <p className="text-text-muted">Loading…</p>
       ) : (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {projects.map((project) => (
-            <article
-              key={project.id}
-              className="flex flex-col gap-4 rounded-2xl border border-border bg-surface p-6 shadow-sm"
-            >
-              <div>
-                <h2 className="text-lg font-semibold">{project.name}</h2>
-                <p className="font-mono text-sm text-text-muted">{project.domain}</p>
-                {project.tags.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {project.tags.map((tag) => (
-                      <a
-                        key={tag}
-                        href={`/dashboard?tag=${encodeURIComponent(tag)}`}
-                        className="rounded-full border border-border bg-bg-subtle px-2 py-0.5 text-xs text-text-muted hover:border-accent"
-                      >
-                        {tag}
-                      </a>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {insights.get(project.id)?.summary && (
-                <div className="rounded-lg border border-accent/40 bg-accent/5 p-3">
-                  <div className="mb-1 flex items-center gap-1.5 text-xs font-medium text-accent-strong">
-                    <span aria-hidden>✦</span> AI summary
-                  </div>
-                  <p className="text-sm text-text">{insights.get(project.id)!.summary}</p>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+          {COLUMNS.map((col) => {
+            const inCol = visible.filter((p) => p.status === col.status);
+            return (
+              <section key={col.status} className="flex flex-col gap-3">
+                <div className="flex items-center justify-between border-b border-border pb-2">
+                  <h2 className="text-sm font-semibold">{col.label}</h2>
+                  <span className="rounded-full bg-bg-subtle px-2 py-0.5 text-xs text-text-muted">
+                    {inCol.length}
+                  </span>
                 </div>
-              )}
-
-              <div className="flex flex-col gap-2">
-                {project.metrics.length === 0 ? (
-                  <p className="text-sm text-text-muted">No metrics yet.</p>
+                {inCol.length === 0 ? (
+                  <p className="px-1 text-xs text-text-muted/60">—</p>
                 ) : (
-                  project.metrics.map((m) => (
-                    <div key={m.name} className="flex items-baseline justify-between">
-                      <span className="text-sm text-text-muted">{m.name}</span>
-                      <span
-                        className={`font-medium ${
-                          m.name === "ssl.days_until_expiry"
-                            ? sslBandClass(m.value)
-                            : "text-text"
-                        }`}
-                      >
-                        {formatMetric(m)}
-                      </span>
-                    </div>
+                  inCol.map((p) => (
+                    <ProjectCard
+                      key={p.id}
+                      project={p}
+                      insight={insights.get(p.id)}
+                      accent={col.accent}
+                      onStatus={changeStatus}
+                    />
                   ))
                 )}
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                {project.connectors.map((c) => (
-                  <span
-                    key={c.connectorId}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-border bg-bg-subtle px-2.5 py-1 text-xs"
-                    title={c.lastSyncError ?? c.lastSyncStatus ?? "never synced"}
-                  >
-                    <span className={`h-2 w-2 rounded-full ${statusDot(c.lastSyncStatus)}`} />
-                    {c.connectorId}
-                  </span>
-                ))}
-              </div>
-
-              {project.events.length > 0 && (
-                <ul className="flex flex-col gap-2 border-t border-border pt-3">
-                  {project.events.slice(0, 3).map((e, i) => (
-                    <li
-                      key={i}
-                      className={`rounded-lg border px-3 py-2 text-xs ${severityClass(e.severity)}`}
-                    >
-                      <span className="font-medium">{e.title}</span>
-                      {e.description ? <span> — {e.description}</span> : null}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </article>
-          ))}
+              </section>
+            );
+          })}
         </div>
       )}
     </main>
+  );
+}
+
+function ProjectCard({
+  project,
+  insight,
+  accent,
+  onStatus,
+}: {
+  project: ProjectSummary;
+  insight: string | undefined;
+  accent: string;
+  onStatus: (id: string, status: ProjectStatus) => void;
+}) {
+  const isLive = project.status === "live" || project.status === "rebuild";
+  const ssl = project.metrics.find((m) => m.name === "ssl.days_until_expiry");
+
+  return (
+    <article
+      className={`flex flex-col gap-3 rounded-xl border border-t-4 border-border bg-surface p-4 shadow-sm ${accent}`}
+    >
+      <div>
+        <a href={`/projects/${project.id}`} className="font-semibold hover:underline">
+          {project.name}
+        </a>
+        {project.domain ? (
+          <p className="font-mono text-xs text-text-muted">{project.domain}</p>
+        ) : (
+          <p className="text-xs italic text-text-muted/70">no domain yet</p>
+        )}
+      </div>
+
+      {project.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {project.tags.map((t) => (
+            <span key={t} className="rounded-full bg-bg-subtle px-2 py-0.5 text-[10px] text-text-muted">
+              {t}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {isLive && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${(HEALTH_META[project.health] ?? HEALTH_META.unknown).cls}`}>
+            {(HEALTH_META[project.health] ?? HEALTH_META.unknown).label}
+          </span>
+          {ssl && (
+            <span className="text-[11px] text-text-muted">SSL {ssl.value}d</span>
+          )}
+          {project.connectors.length > 0 && (
+            <span className="text-[11px] text-text-muted">
+              {project.connectors.length} connector{project.connectors.length > 1 ? "s" : ""}
+            </span>
+          )}
+        </div>
+      )}
+
+      {insight && (
+        <p className="line-clamp-3 rounded-md border border-accent/30 bg-accent/5 p-2 text-[11px] text-text">
+          ✦ {insight}
+        </p>
+      )}
+
+      <select
+        value={project.status}
+        onChange={(e) => onStatus(project.id, e.target.value as ProjectStatus)}
+        className="mt-1 rounded-md border border-border bg-bg px-2 py-1 text-xs text-text-muted"
+      >
+        {COLUMNS.map((c) => (
+          <option key={c.status} value={c.status}>
+            Move to: {c.label.replace(/^\S+\s/, "")}
+          </option>
+        ))}
+      </select>
+    </article>
   );
 }

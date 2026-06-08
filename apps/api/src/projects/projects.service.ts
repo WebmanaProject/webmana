@@ -35,6 +35,9 @@ export interface ProjectSummary {
   id: string;
   name: string;
   domain: string | null;
+  status: string;
+  description: string | null;
+  links: Record<string, string>;
   tags: string[];
   health: HealthBand;
   connectors: ProjectConnector[];
@@ -55,6 +58,9 @@ export class ProjectsService {
         id: schema.projects.id,
         name: schema.projects.name,
         domain: schema.projects.domain,
+        status: schema.projects.status,
+        description: schema.projects.description,
+        links: schema.projects.links,
       })
       .from(schema.projects)
       .orderBy(schema.projects.name);
@@ -167,7 +173,15 @@ export class ProjectsService {
         occurredAt: e.occurredAt.toISOString(),
       }));
 
-      return { ...project, tags, health, connectors, metrics, events };
+      return {
+        ...project,
+        links: (project.links as Record<string, string>) ?? {},
+        tags,
+        health,
+        connectors,
+        metrics,
+        events,
+      };
     });
 
     if (!normalizedFilter) return summaries;
