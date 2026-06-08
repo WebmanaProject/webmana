@@ -73,7 +73,7 @@ export async function evaluateAlerts(
     const notification: AlertNotification = {
       projectId,
       projectName: project.name,
-      domain: project.domain,
+      domain: project.domain ?? "",
       metricName: rule.metricName,
       operator: rule.operator,
       threshold: rule.threshold,

@@ -20,7 +20,7 @@ export interface PublicIncident {
 
 export interface PublicProjectStatus {
   name: string;
-  domain: string;
+  domain: string | null;
   health: HealthBand;
   incidents: PublicIncident[];
 }

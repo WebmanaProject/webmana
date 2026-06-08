@@ -6,7 +6,7 @@ import { DATABASE } from "../db/db.module.js";
 export interface ProjectInsight {
   projectId: string;
   name: string;
-  domain: string;
+  domain: string | null;
   summary: string | null;
   model: string | null;
   generatedAt: string | null;

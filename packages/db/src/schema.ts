@@ -20,6 +20,14 @@ const updatedAt = () =>
   timestamp("updated_at", { withTimezone: true }).notNull().defaultNow();
 
 export const roleEnum = pgEnum("role", ["admin", "editor", "viewer"]);
+export const projectStatusEnum = pgEnum("project_status", [
+  "idea",
+  "in_progress",
+  "rebuild",
+  "live",
+  "paused",
+  "archived",
+]);
 export const severityEnum = pgEnum("event_severity", ["info", "warning", "critical"]);
 export const syncStatusEnum = pgEnum("connector_sync_status", ["ok", "error", "running"]);
 export const alertChannelKindEnum = pgEnum("alert_channel_kind", [
@@ -74,8 +82,14 @@ export const projects = pgTable(
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
-    /** Primary domain, e.g. "example.com". */
-    domain: text("domain").notNull(),
+    /** Primary domain, e.g. "example.com". Null for ideas/early-stage projects. */
+    domain: text("domain"),
+    /** Lifecycle status. Monitoring runs only for live/rebuild projects. */
+    status: projectStatusEnum("status").notNull().default("idea"),
+    /** Free-form description / notes. */
+    description: text("description"),
+    /** Useful links: { repo, prod, staging, design, ... }. */
+    links: jsonb("links").notNull().default(sql`'{}'::jsonb`),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },

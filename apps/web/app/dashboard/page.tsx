@@ -25,7 +25,7 @@ interface ProjectEvent {
 interface ProjectSummary {
   id: string;
   name: string;
-  domain: string;
+  domain: string | null;
   tags: string[];
   connectors: ProjectConnector[];
   metrics: ProjectMetric[];

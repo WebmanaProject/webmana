@@ -15,6 +15,13 @@
       "when": 1780872296208,
       "tag": "0001_marvelous_shen",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1780880973205,
+      "tag": "0002_clammy_mindworm",
+      "breakpoints": true
     }
   ]
 }

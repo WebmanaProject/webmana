@@ -1,7 +1,8 @@
 import { Queue, Worker, type Job } from "bullmq";
 import { Redis } from "ioredis";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import { createDatabase, schema } from "@webmana/db";
+import { MONITORED_STATUSES } from "@webmana/contracts";
 import { getConnector, type ConnectorRunContext } from "@webmana/connectors";
 import { decryptSecrets } from "@webmana/crypto";
 import { evaluateAlerts } from "./alerts.js";
@@ -23,6 +24,9 @@ export const syncQueue = new Queue(QUEUE_NAME, { connection });
 
 /** Enqueue a sync job for every enabled connector instance that is due. */
 async function scan(): Promise<number> {
+  // Only poll connectors for projects that are actually deployed (live/rebuild)
+  // and have a domain. Ideas / in-progress / paused / archived are skipped so
+  // they never produce false alerts.
   const instances = await db
     .select({
       id: schema.connectorInstances.id,
@@ -30,7 +34,14 @@ async function scan(): Promise<number> {
       lastSyncAt: schema.connectorInstances.lastSyncAt,
     })
     .from(schema.connectorInstances)
-    .where(eq(schema.connectorInstances.enabled, true));
+    .innerJoin(schema.projects, eq(schema.connectorInstances.projectId, schema.projects.id))
+    .where(
+      and(
+        eq(schema.connectorInstances.enabled, true),
+        isNotNull(schema.projects.domain),
+        inArray(schema.projects.status, MONITORED_STATUSES),
+      ),
+    );
 
   const now = Date.now();
   let enqueued = 0;
@@ -99,7 +110,8 @@ async function runSync(connectorInstanceId: string): Promise<void> {
 
     const ctx: ConnectorRunContext = {
       projectId: row.projectId,
-      domain: row.domain,
+      // scan() only enqueues projects that have a domain; fall back defensively.
+      domain: row.domain ?? "",
       config: (row.config as Record<string, unknown>) ?? {},
       secrets,
       now,

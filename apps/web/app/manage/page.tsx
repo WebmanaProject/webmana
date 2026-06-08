@@ -13,10 +13,30 @@ interface ManagedConnector {
   lastSyncError: string | null;
 }
 
+type ProjectStatus =
+  | "idea"
+  | "in_progress"
+  | "rebuild"
+  | "live"
+  | "paused"
+  | "archived";
+
+const STATUS_OPTIONS: { value: ProjectStatus; label: string }[] = [
+  { value: "idea", label: "Idea" },
+  { value: "in_progress", label: "In progress" },
+  { value: "rebuild", label: "Rebuild" },
+  { value: "live", label: "Live" },
+  { value: "paused", label: "Paused" },
+  { value: "archived", label: "Archived" },
+];
+
 interface ManagedProject {
   id: string;
   name: string;
-  domain: string;
+  domain: string | null;
+  status: ProjectStatus;
+  description: string | null;
+  links: Record<string, string>;
   tags: string[];
   connectors: ManagedConnector[];
 }
@@ -56,6 +76,7 @@ export default function ManagePage() {
   const [newName, setNewName] = useState("");
   const [newDomain, setNewDomain] = useState("");
   const [newTags, setNewTags] = useState("");
+  const [newStatus, setNewStatus] = useState<ProjectStatus>("idea");
   const [busy, setBusy] = useState(false);
 
   const reload = useCallback(async () => {
@@ -95,12 +116,14 @@ export default function ManagePage() {
         body: JSON.stringify({
           name: newName,
           domain: newDomain,
+          status: newStatus,
           tags: newTags.split(",").map((t) => t.trim()).filter(Boolean),
         }),
       });
       setNewName("");
       setNewDomain("");
       setNewTags("");
+      setNewStatus("idea");
     });
 
   return (
@@ -126,7 +149,7 @@ export default function ManagePage() {
       {/* New project */}
       <section className="mb-10 rounded-2xl border border-border bg-surface p-6 shadow-sm">
         <h2 className="mb-4 text-lg font-semibold">New project</h2>
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           <input
             className="rounded-lg border border-border bg-bg px-3 py-2 text-sm"
             placeholder="Name (e.g. My Blog)"
@@ -135,10 +158,21 @@ export default function ManagePage() {
           />
           <input
             className="rounded-lg border border-border bg-bg px-3 py-2 text-sm"
-            placeholder="Domain (e.g. blog.com)"
+            placeholder="Domain (optional, e.g. blog.com)"
             value={newDomain}
             onChange={(e) => setNewDomain(e.target.value)}
           />
+          <select
+            className="rounded-lg border border-border bg-bg px-3 py-2 text-sm"
+            value={newStatus}
+            onChange={(e) => setNewStatus(e.target.value as ProjectStatus)}
+          >
+            {STATUS_OPTIONS.map((s) => (
+              <option key={s.value} value={s.value}>
+                {s.label}
+              </option>
+            ))}
+          </select>
           <input
             className="rounded-lg border border-border bg-bg px-3 py-2 text-sm"
             placeholder="Tags (comma separated)"
@@ -148,7 +182,7 @@ export default function ManagePage() {
         </div>
         <button
           onClick={createProject}
-          disabled={busy || !newName.trim() || !newDomain.trim()}
+          disabled={busy || !newName.trim()}
           className="mt-4 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-ink disabled:opacity-50"
         >
           Add project
@@ -191,7 +225,8 @@ function ProjectCard({
   api: (path: string, init?: RequestInit) => Promise<unknown>;
 }) {
   const [editName, setEditName] = useState(project.name);
-  const [editDomain, setEditDomain] = useState(project.domain);
+  const [editDomain, setEditDomain] = useState(project.domain ?? "");
+  const [editStatus, setEditStatus] = useState<ProjectStatus>(project.status);
   const [editTags, setEditTags] = useState(project.tags.join(", "));
 
   // Add-connector form.
@@ -208,6 +243,7 @@ function ProjectCard({
         body: JSON.stringify({
           name: editName,
           domain: editDomain,
+          status: editStatus,
           tags: editTags.split(",").map((t) => t.trim()).filter(Boolean),
         }),
       }),
@@ -234,7 +270,7 @@ function ProjectCard({
 
   return (
     <article className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <input
           className="rounded-lg border border-border bg-bg px-3 py-2 text-sm"
           value={editName}
@@ -242,9 +278,21 @@ function ProjectCard({
         />
         <input
           className="rounded-lg border border-border bg-bg px-3 py-2 font-mono text-sm"
+          placeholder="domain (optional)"
           value={editDomain}
           onChange={(e) => setEditDomain(e.target.value)}
         />
+        <select
+          className="rounded-lg border border-border bg-bg px-3 py-2 text-sm"
+          value={editStatus}
+          onChange={(e) => setEditStatus(e.target.value as ProjectStatus)}
+        >
+          {STATUS_OPTIONS.map((s) => (
+            <option key={s.value} value={s.value}>
+              {s.label}
+            </option>
+          ))}
+        </select>
         <input
           className="rounded-lg border border-border bg-bg px-3 py-2 text-sm"
           placeholder="tags, comma separated"

@@ -4,6 +4,23 @@ import { z } from "zod";
 export const roleSchema = z.enum(["admin", "editor", "viewer"]);
 export type Role = z.infer<typeof roleSchema>;
 
+/**
+ * Lifecycle status of a project, from idea to retirement. Monitoring connectors
+ * only run for projects that are actually deployed (`live` or `rebuild`).
+ */
+export const projectStatusSchema = z.enum([
+  "idea",
+  "in_progress",
+  "rebuild",
+  "live",
+  "paused",
+  "archived",
+]);
+export type ProjectStatus = z.infer<typeof projectStatusSchema>;
+
+/** Statuses for which the worker should poll monitoring connectors. */
+export const MONITORED_STATUSES: ProjectStatus[] = ["live", "rebuild"];
+
 /** Identifiers for built-in and external connectors. */
 export const connectorIdSchema = z.enum([
   // keyless built-ins (Phase 1)

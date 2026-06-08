@@ -232,7 +232,7 @@ export async function generateInsights(db: Database, now: Date): Promise<number>
 
     const prompt = buildPrompt({
       name: project.name,
-      domain: project.domain,
+      domain: project.domain ?? "(no domain)",
       metrics,
       events,
     });

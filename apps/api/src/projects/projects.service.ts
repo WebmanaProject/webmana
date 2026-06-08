@@ -34,7 +34,7 @@ export interface ProjectEvent {
 export interface ProjectSummary {
   id: string;
   name: string;
-  domain: string;
+  domain: string | null;
   tags: string[];
   health: HealthBand;
   connectors: ProjectConnector[];

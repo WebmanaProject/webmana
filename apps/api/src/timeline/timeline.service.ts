@@ -6,7 +6,7 @@ import { DATABASE } from "../db/db.module.js";
 export interface TimelineEntry {
   projectId: string;
   projectName: string;
-  domain: string;
+  domain: string | null;
   connectorId: string | null;
   severity: string;
   title: string;

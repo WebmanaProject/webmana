@@ -15,7 +15,7 @@ const MAX_WINDOW_DAYS = 365;
 export interface ProjectSla {
   projectId: string;
   name: string;
-  domain: string;
+  domain: string | null;
   /** Uptime percentage over the window, e.g. 99.95. Null when no samples. */
   uptimePercent: number | null;
   /** Number of uptime samples observed in the window. */

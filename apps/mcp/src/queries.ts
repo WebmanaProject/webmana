@@ -8,7 +8,7 @@ const HEALTH_WINDOW_MS = 24 * 60 * 60 * 1000;
 export interface ProjectListItem {
   id: string;
   name: string;
-  domain: string;
+  domain: string | null;
   tags: string[];
   health: HealthBand;
   connectors: {
@@ -259,7 +259,7 @@ export async function getProject(
 export interface ProjectSla {
   projectId: string;
   name: string;
-  domain: string;
+  domain: string | null;
   uptimePercent: number | null;
   samples: number;
   downSamples: number;

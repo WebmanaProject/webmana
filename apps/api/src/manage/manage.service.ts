@@ -3,17 +3,25 @@ import { and, eq } from "drizzle-orm";
 import { schema, type Database } from "@webmana/db";
 import { getConnector, connectors } from "@webmana/connectors";
 import { encryptSecrets } from "@webmana/crypto";
+import { projectStatusSchema, type ProjectStatus } from "@webmana/contracts";
 import { DATABASE } from "../db/db.module.js";
 
 export interface CreateProjectInput {
   name: string;
-  domain: string;
+  /** Optional — ideas/early-stage projects may not have a domain yet. */
+  domain?: string;
+  status?: ProjectStatus;
+  description?: string;
+  links?: Record<string, string>;
   tags?: string[];
 }
 
 export interface UpdateProjectInput {
   name?: string;
-  domain?: string;
+  domain?: string | null;
+  status?: ProjectStatus;
+  description?: string | null;
+  links?: Record<string, string>;
   tags?: string[];
 }
 
@@ -78,7 +86,10 @@ export class ManageService {
     {
       id: string;
       name: string;
-      domain: string;
+      domain: string | null;
+      status: ProjectStatus;
+      description: string | null;
+      links: Record<string, string>;
       tags: string[];
       connectors: {
         id: string;
@@ -94,6 +105,9 @@ export class ManageService {
         id: schema.projects.id,
         name: schema.projects.name,
         domain: schema.projects.domain,
+        status: schema.projects.status,
+        description: schema.projects.description,
+        links: schema.projects.links,
       })
       .from(schema.projects)
       .orderBy(schema.projects.name);
@@ -119,6 +133,7 @@ export class ManageService {
 
     return projectRows.map((p) => ({
       ...p,
+      links: (p.links as Record<string, string>) ?? {},
       tags: tagRows
         .filter((t) => t.projectId === p.id)
         .map((t) => t.tag)
@@ -145,16 +160,30 @@ export class ManageService {
     }));
   }
 
+  private parseStatus(status?: ProjectStatus): ProjectStatus | undefined {
+    if (status === undefined) return undefined;
+    const parsed = projectStatusSchema.safeParse(status);
+    if (!parsed.success) throw new BadRequestException(`invalid status "${status}"`);
+    return parsed.data;
+  }
+
   async createProject(input: CreateProjectInput): Promise<{ id: string }> {
     const name = input.name?.trim();
-    const domain = input.domain?.trim();
     if (!name) throw new BadRequestException("name is required");
-    if (!domain) throw new BadRequestException("domain is required");
+    const domain = input.domain?.trim() || null;
+    const status = this.parseStatus(input.status) ?? "idea";
 
     const organizationId = await this.defaultOrgId();
     const [created] = await this.db
       .insert(schema.projects)
-      .values({ organizationId, name, domain })
+      .values({
+        organizationId,
+        name,
+        domain,
+        status,
+        description: input.description?.trim() || null,
+        links: input.links ?? {},
+      })
       .returning({ id: schema.projects.id });
     if (!created) throw new BadRequestException("failed to create project");
 
@@ -179,9 +208,17 @@ export class ManageService {
       patch.name = name;
     }
     if (input.domain !== undefined) {
-      const domain = input.domain.trim();
-      if (!domain) throw new BadRequestException("domain cannot be empty");
-      patch.domain = domain;
+      // Empty string or null clears the domain (e.g. project not yet deployed).
+      patch.domain = input.domain ? input.domain.trim() || null : null;
+    }
+    if (input.status !== undefined) {
+      patch.status = this.parseStatus(input.status);
+    }
+    if (input.description !== undefined) {
+      patch.description = input.description ? input.description.trim() || null : null;
+    }
+    if (input.links !== undefined) {
+      patch.links = input.links;
     }
 
     await this.db

@@ -1,7 +1,7 @@
 interface ProjectSla {
   projectId: string;
   name: string;
-  domain: string;
+  domain: string | null;
   uptimePercent: number | null;
   samples: number;
   downSamples: number;
