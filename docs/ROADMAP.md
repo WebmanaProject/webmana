@@ -50,4 +50,19 @@ Phased delivery. Each phase should be shippable and demoable on its own.
 - ✅ AI insights surfaced inside the dashboard (not just via MCP).
 - ✅ Management UI (write actions): create/edit/delete projects + connectors via
   `/manage`. Read surfaces (dashboard, MCP, status page) stay read-only.
-  RBAC enforcement on these endpoints is still TODO (single-org MVP for now).
+
+## Portfolio lifecycle hub (delivered)
+
+Pivot from a monitoring tool to a team portfolio hub, built in phases:
+
+- ✅ **Phase 1** — project lifecycle model (status, optional domain, links).
+- ✅ **Phase 2** — kanban portfolio board + project detail page.
+- ✅ **Phase 3** — authentication (passwords, JWT sessions, guarded writes).
+- ✅ **Phase 4** — team/RBAC (roles, invitations, org settings, MCP tokens).
+- ✅ **Phase 5** — alert rule + channel management UI.
+- ⬜ **Phase 6 (optional)** — dev/deploy connectors (GitHub repo/commit status,
+  Vercel/Netlify deploy status) so "in progress vs deployed" updates
+  automatically. Needs API keys + an explicit go-ahead.
+
+Follow-ups still open: invitation emails via SMTP (tokens are surfaced in the UI
+for now), exportable SLA reports, and per-project notes/TODO.

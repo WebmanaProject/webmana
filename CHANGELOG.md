@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Portfolio lifecycle**: projects now have a status (idea → in_progress →
+  rebuild → live → paused → archived), an optional domain, a description, and
+  links. The dashboard is a kanban board grouped by status with inline status
+  changes; a new `/projects/[id]` detail page shows status, links, and (for live
+  projects) SLA, connectors, metrics, events, and alert rules. The worker only
+  polls connectors for live/rebuild projects with a domain. Migration 0002.
+- **Authentication**: scrypt password hashing + HS256 JWT session cookies
+  (node:crypto). `/api/auth/login`/`logout`/`me`, an AuthGuard protecting all
+  `/api/manage/*` writes, a `/login` page, and an env-seeded initial admin.
+- **Team & RBAC**: role enforcement (admin > editor > viewer), token-based
+  invitations (migration 0003), a `/settings` admin page for members,
+  invitations, and MCP tokens, and a public `/invite` acceptance page.
+- **Alert management UI**: create/list/delete alert rules per project and
+  alert channels per org from the project detail page and API.
 - **Management UI / write actions**: a `/manage` page and `/api/manage/*`
   endpoints to create, edit, and delete projects (with tags) and to add,
   enable/disable, and remove connectors per project. Connector API keys are
