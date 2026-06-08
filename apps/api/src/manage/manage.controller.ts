@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  UseGuards,
 } from "@nestjs/common";
 import {
   ManageService,
@@ -14,8 +15,10 @@ import {
   type UpdateProjectInput,
   type UpsertConnectorInput,
 } from "./manage.service.js";
+import { AuthGuard } from "../auth/auth.guard.js";
 
 @Controller("manage")
+@UseGuards(AuthGuard)
 export class ManageController {
   constructor(private readonly manage: ManageService) {}
 

@@ -1,9 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/?$/, "") ?? "http://localhost:4000";
+import { useRequireAuth, API_BASE as API_URL } from "../../lib/auth";
 
 type ProjectStatus =
   | "idea"
@@ -86,6 +84,7 @@ export default function ProjectDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  useRequireAuth();
   const [id, setId] = useState<string | null>(null);
   const [project, setProject] = useState<ProjectSummary | null>(null);
   const [sla, setSla] = useState<SlaRow | null>(null);
@@ -101,9 +100,9 @@ export default function ProjectDetailPage({
     if (!id) return;
     try {
       const [pRes, sRes, iRes] = await Promise.all([
-        fetch(`${API_URL}/api/projects`, { cache: "no-store" }),
-        fetch(`${API_URL}/api/sla?projectId=${id}`, { cache: "no-store" }),
-        fetch(`${API_URL}/api/insights?projectId=${id}`, { cache: "no-store" }),
+        fetch(`${API_URL}/api/projects`, { cache: "no-store", credentials: "include" }),
+        fetch(`${API_URL}/api/sla?projectId=${id}`, { cache: "no-store", credentials: "include" }),
+        fetch(`${API_URL}/api/insights?projectId=${id}`, { cache: "no-store", credentials: "include" }),
       ]);
       const all = pRes.ok ? ((await pRes.json()) as ProjectSummary[]) : [];
       const found = all.find((p) => p.id === id) ?? null;
@@ -132,6 +131,7 @@ export default function ProjectDetailPage({
     await fetch(`${API_URL}/api/manage/projects/${project.id}`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({ status }),
     });
   }

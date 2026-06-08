@@ -1,9 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/?$/, "") ?? "http://localhost:4000";
+import { useRequireAuth, logout, API_BASE as API_URL } from "../lib/auth";
 
 type ProjectStatus =
   | "idea"
@@ -65,6 +63,7 @@ const HEALTH_META: Record<
 };
 
 export default function DashboardPage() {
+  useRequireAuth();
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [insights, setInsights] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -75,8 +74,8 @@ export default function DashboardPage() {
     setError(null);
     try {
       const [pRes, iRes] = await Promise.all([
-        fetch(`${API_URL}/api/projects`, { cache: "no-store" }),
-        fetch(`${API_URL}/api/insights`, { cache: "no-store" }),
+        fetch(`${API_URL}/api/projects`, { cache: "no-store", credentials: "include" }),
+        fetch(`${API_URL}/api/insights`, { cache: "no-store", credentials: "include" }),
       ]);
       if (!pRes.ok) throw new Error(`API ${pRes.status}`);
       setProjects((await pRes.json()) as ProjectSummary[]);
@@ -104,6 +103,7 @@ export default function DashboardPage() {
       await fetch(`${API_URL}/api/manage/projects/${id}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ status }),
       });
     } catch {
@@ -132,7 +132,9 @@ export default function DashboardPage() {
         <nav className="flex items-center gap-4 text-sm">
           <a href="/manage" className="text-accent-strong hover:underline">Manage</a>
           <a href="/sla" className="text-accent-strong hover:underline">SLA report</a>
-          <a href="/" className="text-accent-strong hover:underline">← Home</a>
+          <button onClick={() => void logout()} className="text-text-muted hover:underline">
+            Logout
+          </button>
         </nav>
       </header>
 

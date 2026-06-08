@@ -1,9 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/?$/, "") ?? "http://localhost:4000";
+import { useRequireAuth, logout, API_BASE as API_URL } from "../lib/auth";
 
 interface ManagedConnector {
   id: string;
@@ -51,8 +49,13 @@ interface CatalogItem {
 async function api(path: string, init?: RequestInit) {
   const res = await fetch(`${API_URL}/api${path}`, {
     ...init,
+    credentials: "include",
     headers: { "content-type": "application/json", ...(init?.headers ?? {}) },
   });
+  if (res.status === 401) {
+    window.location.href = "/login";
+    throw new Error("not authenticated");
+  }
   if (!res.ok) {
     let msg = `HTTP ${res.status}`;
     try {
@@ -67,6 +70,7 @@ async function api(path: string, init?: RequestInit) {
 }
 
 export default function ManagePage() {
+  useRequireAuth();
   const [projects, setProjects] = useState<ManagedProject[]>([]);
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -137,6 +141,9 @@ export default function ManagePage() {
           <a href="/dashboard" className="text-accent-strong hover:underline">
             ← Dashboard
           </a>
+          <button onClick={() => void logout()} className="text-text-muted hover:underline">
+            Logout
+          </button>
         </nav>
       </header>
 
