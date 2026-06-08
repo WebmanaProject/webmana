@@ -60,9 +60,8 @@ Pivot from a monitoring tool to a team portfolio hub, built in phases:
 - ✅ **Phase 3** — authentication (passwords, JWT sessions, guarded writes).
 - ✅ **Phase 4** — team/RBAC (roles, invitations, org settings, MCP tokens).
 - ✅ **Phase 5** — alert rule + channel management UI.
-- ⬜ **Phase 6 (optional)** — dev/deploy connectors (GitHub repo/commit status,
-  Vercel/Netlify deploy status) so "in progress vs deployed" updates
-  automatically. Needs API keys + an explicit go-ahead.
+- ✅ **Phase 6** — dev/deploy connectors: `github` (repo activity) and `vercel`
+  (deploy status). Netlify and per-project notes/TODO remain open follow-ups.
 
 Follow-ups still open: invitation emails via SMTP (tokens are surfaced in the UI
 for now), exportable SLA reports, and per-project notes/TODO.

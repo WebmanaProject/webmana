@@ -38,6 +38,9 @@ export const connectorIdSchema = z.enum([
   "elasticsearch",
   "snyk",
   "aws_cost",
+  // dev/deploy connectors (Phase 6)
+  "github",
+  "vercel",
 ]);
 export type ConnectorId = z.infer<typeof connectorIdSchema>;
 
@@ -51,6 +54,7 @@ export const metricKindSchema = z.enum([
   "security",
   "cost",
   "traffic",
+  "deploy",
 ]);
 export type MetricKind = z.infer<typeof metricKindSchema>;
 

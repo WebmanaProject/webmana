@@ -23,6 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   invitations, and MCP tokens, and a public `/invite` acceptance page.
 - **Alert management UI**: create/list/delete alert rules per project and
   alert channels per org from the project detail page and API.
+- **Dev/deploy connectors**: `github` (repo activity — days since last push,
+  open issues, default branch, archived state) and `vercel` (latest deployment
+  state, age, target). New `deploy` metric kind. Both surface "in progress vs
+  deployed" signals automatically for projects under active development.
 - **Management UI / write actions**: a `/manage` page and `/api/manage/*`
   endpoints to create, edit, and delete projects (with tags) and to add,
   enable/disable, and remove connectors per project. Connector API keys are

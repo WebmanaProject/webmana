@@ -25,7 +25,7 @@ the local store — external APIs are never called during a request. See
 
 - **Connectors** — keyless (SSL expiry, WHOIS, DNS, HTTP uptime, Mozilla Observatory,
   Elasticsearch) and key-based (Cloudflare, PageSpeed, UptimeRobot, GA4, Datadog, Snyk,
-  AWS Cost Explorer). Encrypted credential storage (AES-256-GCM).
+  AWS Cost Explorer, GitHub, Vercel). Encrypted credential storage (AES-256-GCM).
 - **Health score & timeline** — a unified health band per project and a cross-project
   activity/incident feed.
 - **Alerting** — rule evaluation after each sync with webhook, Slack, and email (SMTP)

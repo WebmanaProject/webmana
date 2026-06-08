@@ -17,3 +17,5 @@ export { datadogConnector } from "./builtin/datadog.js";
 export { elasticsearchConnector } from "./builtin/elasticsearch.js";
 export { snykConnector } from "./builtin/snyk.js";
 export { awsCostConnector, signRequestV4 } from "./builtin/aws-cost.js";
+export { githubConnector } from "./builtin/github.js";
+export { vercelConnector } from "./builtin/vercel.js";
