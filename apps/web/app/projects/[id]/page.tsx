@@ -62,6 +62,19 @@ interface SlaRow {
   samples: number;
 }
 
+interface AlertRule {
+  id: string;
+  metricName: string;
+  operator: string;
+  threshold: number;
+  severity: string;
+  enabled: boolean;
+}
+
+const OPERATOR_LABELS: Record<string, string> = {
+  lt: "<", lte: "≤", gt: ">", gte: "≥", eq: "=",
+};
+
 const HEALTH_META: Record<string, { label: string; cls: string }> = {
   healthy: { label: "Healthy", cls: "bg-accent/15 text-accent-strong" },
   degraded: { label: "Degraded", cls: "bg-amber-100 text-amber-700" },
@@ -91,6 +104,12 @@ export default function ProjectDetailPage({
   const [insight, setInsight] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [rules, setRules] = useState<AlertRule[]>([]);
+
+  // New-rule form
+  const [rMetric, setRMetric] = useState("ssl.days_until_expiry");
+  const [rOp, setROp] = useState("lt");
+  const [rThreshold, setRThreshold] = useState("14");
 
   useEffect(() => {
     void params.then((p) => setId(p.id));
@@ -116,10 +135,39 @@ export default function ProjectDetailPage({
         const rows = (await iRes.json()) as { projectId: string; summary: string | null }[];
         setInsight(rows.find((r) => r.projectId === id)?.summary ?? null);
       }
+      const rRes = await fetch(`${API_URL}/api/manage/projects/${id}/alert-rules`, {
+        cache: "no-store",
+        credentials: "include",
+      });
+      if (rRes.ok) setRules((await rRes.json()) as AlertRule[]);
     } finally {
       setLoading(false);
     }
   }, [id]);
+
+  async function addRule() {
+    if (!project) return;
+    await fetch(`${API_URL}/api/manage/projects/${project.id}/alert-rules`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        metricName: rMetric.trim(),
+        operator: rOp,
+        threshold: Number(rThreshold),
+      }),
+    });
+    void reload();
+  }
+
+  async function deleteRule(ruleId: string) {
+    if (!project) return;
+    await fetch(`${API_URL}/api/manage/projects/${project.id}/alert-rules/${ruleId}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+    void reload();
+  }
 
   useEffect(() => {
     void reload();
@@ -263,6 +311,58 @@ export default function ProjectDetailPage({
                 ))}
               </div>
             )}
+          </section>
+
+          {/* Alert rules */}
+          <section className="rounded-xl border border-border bg-surface p-4 sm:col-span-2">
+            <h2 className="mb-3 text-sm font-semibold">Alert rules</h2>
+            {rules.length === 0 ? (
+              <p className="mb-3 text-sm text-text-muted">No alert rules yet.</p>
+            ) : (
+              <ul className="mb-4 space-y-2">
+                {rules.map((r) => (
+                  <li key={r.id} className="flex items-center justify-between rounded-lg border border-border bg-bg-subtle px-3 py-2 text-sm">
+                    <span>
+                      <code className="text-xs">{r.metricName}</code>{" "}
+                      {OPERATOR_LABELS[r.operator] ?? r.operator} {r.threshold}
+                      <span className="ml-2 text-xs text-text-muted">({r.severity})</span>
+                    </span>
+                    <button
+                      onClick={() => void deleteRule(r.id)}
+                      className="rounded border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+                    >
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-border p-3">
+              <input
+                value={rMetric}
+                onChange={(e) => setRMetric(e.target.value)}
+                placeholder="metric name"
+                className="flex-1 rounded-md border border-border bg-bg px-2 py-1 font-mono text-xs"
+              />
+              <select value={rOp} onChange={(e) => setROp(e.target.value)} className="rounded-md border border-border bg-bg px-2 py-1 text-xs">
+                {Object.entries(OPERATOR_LABELS).map(([v, l]) => (
+                  <option key={v} value={v}>{l}</option>
+                ))}
+              </select>
+              <input
+                value={rThreshold}
+                onChange={(e) => setRThreshold(e.target.value)}
+                type="number"
+                className="w-24 rounded-md border border-border bg-bg px-2 py-1 text-xs"
+              />
+              <button
+                onClick={() => void addRule()}
+                disabled={!rMetric.trim()}
+                className="rounded-md bg-accent px-3 py-1 text-xs font-medium text-accent-ink disabled:opacity-50"
+              >
+                Add rule
+              </button>
+            </div>
           </section>
 
           {/* Recent events */}

@@ -14,6 +14,8 @@ import {
   type CreateProjectInput,
   type UpdateProjectInput,
   type UpsertConnectorInput,
+  type CreateAlertRuleInput,
+  type CreateAlertChannelInput,
 } from "./manage.service.js";
 import { AuthGuard } from "../auth/auth.guard.js";
 import { RolesGuard, Roles } from "../auth/roles.guard.js";
@@ -77,5 +79,45 @@ export class ManageController {
   @HttpCode(200)
   deleteConnector(@Param("id") id: string, @Param("instanceId") instanceId: string) {
     return this.manage.deleteConnector(id, instanceId).then(() => ({ ok: true }));
+  }
+
+  /* --------------------------------------------------------- Alert rules ---- */
+
+  @Get("projects/:id/alert-rules")
+  listAlertRules(@Param("id") id: string) {
+    return this.manage.listAlertRules(id);
+  }
+
+  @Post("projects/:id/alert-rules")
+  @Roles("editor")
+  createAlertRule(@Param("id") id: string, @Body() body: CreateAlertRuleInput) {
+    return this.manage.createAlertRule(id, body);
+  }
+
+  @Delete("projects/:id/alert-rules/:ruleId")
+  @Roles("editor")
+  @HttpCode(200)
+  deleteAlertRule(@Param("id") id: string, @Param("ruleId") ruleId: string) {
+    return this.manage.deleteAlertRule(id, ruleId).then(() => ({ ok: true }));
+  }
+
+  /* ------------------------------------------------------- Alert channels --- */
+
+  @Get("alert-channels")
+  listAlertChannels() {
+    return this.manage.listAlertChannels();
+  }
+
+  @Post("alert-channels")
+  @Roles("editor")
+  createAlertChannel(@Body() body: CreateAlertChannelInput) {
+    return this.manage.createAlertChannel(body);
+  }
+
+  @Delete("alert-channels/:channelId")
+  @Roles("editor")
+  @HttpCode(200)
+  deleteAlertChannel(@Param("channelId") channelId: string) {
+    return this.manage.deleteAlertChannel(channelId).then(() => ({ ok: true }));
   }
 }

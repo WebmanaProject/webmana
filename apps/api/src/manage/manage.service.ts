@@ -41,6 +41,23 @@ export interface ConnectorCatalogItem {
   defaultIntervalSeconds: number;
 }
 
+export interface CreateAlertRuleInput {
+  metricName: string;
+  operator: string;
+  threshold: number;
+  severity?: "info" | "warning" | "critical";
+  cooldownSeconds?: number;
+}
+
+export interface CreateAlertChannelInput {
+  kind: "webhook" | "slack" | "email";
+  config: Record<string, unknown>;
+}
+
+const OPERATORS = ["lt", "lte", "gt", "gte", "eq"];
+const SEVERITIES = ["info", "warning", "critical"];
+const CHANNEL_KINDS = ["webhook", "slack", "email"];
+
 @Injectable()
 export class ManageService {
   constructor(@Inject(DATABASE) private readonly db: Database) {}
@@ -340,5 +357,108 @@ export class ManageService {
       )
       .returning({ id: schema.connectorInstances.id });
     if (deleted.length === 0) throw new NotFoundException("connector not found");
+  }
+
+  /* -------------------------------------------------------- Alert rules ----- */
+
+  async listAlertRules(projectId: string) {
+    return this.db
+      .select({
+        id: schema.alertRules.id,
+        metricName: schema.alertRules.metricName,
+        operator: schema.alertRules.operator,
+        threshold: schema.alertRules.threshold,
+        severity: schema.alertRules.severity,
+        cooldownSeconds: schema.alertRules.cooldownSeconds,
+        enabled: schema.alertRules.enabled,
+      })
+      .from(schema.alertRules)
+      .where(eq(schema.alertRules.projectId, projectId));
+  }
+
+  async createAlertRule(
+    projectId: string,
+    input: CreateAlertRuleInput,
+  ): Promise<{ id: string }> {
+    const [project] = await this.db
+      .select({ id: schema.projects.id })
+      .from(schema.projects)
+      .where(eq(schema.projects.id, projectId))
+      .limit(1);
+    if (!project) throw new NotFoundException("project not found");
+
+    if (!input.metricName?.trim()) throw new BadRequestException("metricName is required");
+    if (!OPERATORS.includes(input.operator)) {
+      throw new BadRequestException(`operator must be one of: ${OPERATORS.join(", ")}`);
+    }
+    if (typeof input.threshold !== "number" || Number.isNaN(input.threshold)) {
+      throw new BadRequestException("threshold must be a number");
+    }
+    const severity = input.severity ?? "warning";
+    if (!SEVERITIES.includes(severity)) throw new BadRequestException("invalid severity");
+
+    const [created] = await this.db
+      .insert(schema.alertRules)
+      .values({
+        projectId,
+        metricName: input.metricName.trim(),
+        operator: input.operator,
+        threshold: input.threshold,
+        severity,
+        cooldownSeconds: input.cooldownSeconds ?? 3600,
+      })
+      .returning({ id: schema.alertRules.id });
+    if (!created) throw new BadRequestException("failed to create rule");
+    return { id: created.id };
+  }
+
+  async deleteAlertRule(projectId: string, ruleId: string): Promise<void> {
+    const deleted = await this.db
+      .delete(schema.alertRules)
+      .where(and(eq(schema.alertRules.id, ruleId), eq(schema.alertRules.projectId, projectId)))
+      .returning({ id: schema.alertRules.id });
+    if (deleted.length === 0) throw new NotFoundException("rule not found");
+  }
+
+  /* ------------------------------------------------------ Alert channels ---- */
+
+  async listAlertChannels() {
+    const orgId = await this.defaultOrgId();
+    return this.db
+      .select({
+        id: schema.alertChannels.id,
+        kind: schema.alertChannels.kind,
+        config: schema.alertChannels.config,
+        enabled: schema.alertChannels.enabled,
+      })
+      .from(schema.alertChannels)
+      .where(eq(schema.alertChannels.organizationId, orgId));
+  }
+
+  async createAlertChannel(input: CreateAlertChannelInput): Promise<{ id: string }> {
+    if (!CHANNEL_KINDS.includes(input.kind)) {
+      throw new BadRequestException(`kind must be one of: ${CHANNEL_KINDS.join(", ")}`);
+    }
+    const orgId = await this.defaultOrgId();
+    const [created] = await this.db
+      .insert(schema.alertChannels)
+      .values({ organizationId: orgId, kind: input.kind, config: input.config ?? {} })
+      .returning({ id: schema.alertChannels.id });
+    if (!created) throw new BadRequestException("failed to create channel");
+    return { id: created.id };
+  }
+
+  async deleteAlertChannel(channelId: string): Promise<void> {
+    const orgId = await this.defaultOrgId();
+    const deleted = await this.db
+      .delete(schema.alertChannels)
+      .where(
+        and(
+          eq(schema.alertChannels.id, channelId),
+          eq(schema.alertChannels.organizationId, orgId),
+        ),
+      )
+      .returning({ id: schema.alertChannels.id });
+    if (deleted.length === 0) throw new NotFoundException("channel not found");
   }
 }
