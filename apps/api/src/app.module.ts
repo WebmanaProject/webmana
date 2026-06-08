@@ -8,6 +8,7 @@ import { SlaModule } from "./sla/sla.module.js";
 import { InsightsModule } from "./insights/insights.module.js";
 import { ManageModule } from "./manage/manage.module.js";
 import { AuthModule } from "./auth/auth.module.js";
+import { OrgModule } from "./org/org.module.js";
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { AuthModule } from "./auth/auth.module.js";
     SlaModule,
     InsightsModule,
     ManageModule,
+    OrgModule,
   ],
   controllers: [HealthController],
 })

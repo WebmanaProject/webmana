@@ -132,6 +132,7 @@ export default function DashboardPage() {
         <nav className="flex items-center gap-4 text-sm">
           <a href="/manage" className="text-accent-strong hover:underline">Manage</a>
           <a href="/sla" className="text-accent-strong hover:underline">SLA report</a>
+          <a href="/settings" className="text-accent-strong hover:underline">Settings</a>
           <button onClick={() => void logout()} className="text-text-muted hover:underline">
             Logout
           </button>

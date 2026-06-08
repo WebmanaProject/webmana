@@ -16,9 +16,10 @@ import {
   type UpsertConnectorInput,
 } from "./manage.service.js";
 import { AuthGuard } from "../auth/auth.guard.js";
+import { RolesGuard, Roles } from "../auth/roles.guard.js";
 
 @Controller("manage")
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, RolesGuard)
 export class ManageController {
   constructor(private readonly manage: ManageService) {}
 
@@ -35,27 +36,32 @@ export class ManageController {
   }
 
   @Post("projects")
+  @Roles("editor")
   createProject(@Body() body: CreateProjectInput) {
     return this.manage.createProject(body);
   }
 
   @Patch("projects/:id")
+  @Roles("editor")
   updateProject(@Param("id") id: string, @Body() body: UpdateProjectInput) {
     return this.manage.updateProject(id, body).then(() => ({ ok: true }));
   }
 
   @Delete("projects/:id")
+  @Roles("editor")
   @HttpCode(200)
   deleteProject(@Param("id") id: string) {
     return this.manage.deleteProject(id).then(() => ({ ok: true }));
   }
 
   @Post("projects/:id/connectors")
+  @Roles("editor")
   upsertConnector(@Param("id") id: string, @Body() body: UpsertConnectorInput) {
     return this.manage.upsertConnector(id, body);
   }
 
   @Patch("projects/:id/connectors/:instanceId")
+  @Roles("editor")
   setEnabled(
     @Param("id") id: string,
     @Param("instanceId") instanceId: string,
@@ -67,6 +73,7 @@ export class ManageController {
   }
 
   @Delete("projects/:id/connectors/:instanceId")
+  @Roles("editor")
   @HttpCode(200)
   deleteConnector(@Param("id") id: string, @Param("instanceId") instanceId: string) {
     return this.manage.deleteConnector(id, instanceId).then(() => ({ ok: true }));

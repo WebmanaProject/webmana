@@ -246,6 +246,26 @@ export const alertHistory = pgTable(
   (t) => [index("alert_history_rule_time_idx").on(t.ruleId, t.firedAt)],
 );
 
+/* --------------------------------------------------------- Invitations ----- */
+/** Pending invitations to join an organization with a given role. */
+export const invitations = pgTable(
+  "invitations",
+  {
+    id: id(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    role: roleEnum("role").notNull().default("viewer"),
+    /** Hashed invite token; the plaintext is delivered to the invitee once. */
+    tokenHash: text("token_hash").notNull().unique(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("invitations_org_idx").on(t.organizationId)],
+);
+
 /* ----------------------------------------------------------- MCP tokens ---- */
 /** Tokens for MCP HTTP/SSE clients. Scoped to a role so AI inherits RBAC. */
 export const mcpTokens = pgTable("mcp_tokens", {
