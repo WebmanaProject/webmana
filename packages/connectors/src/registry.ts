@@ -16,8 +16,8 @@ import { awsCostConnector } from "./builtin/aws-cost.js";
 import { githubConnector } from "./builtin/github.js";
 import { vercelConnector } from "./builtin/vercel.js";
 
-/** All connectors known to Webmana, keyed by id. */
-export const connectors = {
+/** Connectors that ship in this repo, keyed by id. */
+const builtInConnectors: Record<string, Connector> = {
   ssl: sslConnector,
   uptime: uptimeConnector,
   dns: dnsConnector,
@@ -33,8 +33,33 @@ export const connectors = {
   aws_cost: awsCostConnector,
   github: githubConnector,
   vercel: vercelConnector,
-} satisfies Partial<Record<ConnectorId, Connector>>;
+} satisfies Record<ConnectorId, Connector>;
+
+/**
+ * The live registry: built-ins plus any externally-registered connectors.
+ * Mutable so {@link registerConnector} can add third-party connectors at boot.
+ */
+const registry: Record<string, Connector> = { ...builtInConnectors };
+
+/** All connectors currently known to Webmana, keyed by id. */
+export const connectors: Readonly<Record<string, Connector>> = registry;
 
 export function getConnector(id: string): Connector | undefined {
-  return (connectors as Record<string, Connector>)[id];
+  return registry[id];
+}
+
+/** True for connectors that ship in this repo (vs. externally registered). */
+export function isBuiltInConnector(id: string): boolean {
+  return id in builtInConnectors;
+}
+
+/**
+ * Register an additional connector at runtime (e.g. a third-party package).
+ * Throws on a duplicate id so a typo can't silently shadow a built-in.
+ */
+export function registerConnector(connector: Connector): void {
+  if (registry[connector.id]) {
+    throw new Error(`connector id "${connector.id}" is already registered`);
+  }
+  registry[connector.id] = connector;
 }

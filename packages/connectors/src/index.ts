@@ -3,7 +3,17 @@ export type {
   ConnectorResult,
   ConnectorRunContext,
 } from "./types.js";
-export { connectors, getConnector } from "./registry.js";
+export {
+  connectors,
+  getConnector,
+  registerConnector,
+  isBuiltInConnector,
+} from "./registry.js";
+export {
+  loadExternalConnectors,
+  isValidConnector,
+  type LoadResult,
+} from "./loader.js";
 export { sslConnector } from "./builtin/ssl.js";
 export { uptimeConnector } from "./builtin/uptime.js";
 export { dnsConnector } from "./builtin/dns.js";

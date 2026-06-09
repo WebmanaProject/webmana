@@ -3,7 +3,11 @@ import { Redis } from "ioredis";
 import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import { createDatabase, schema } from "@webmana/db";
 import { MONITORED_STATUSES } from "@webmana/contracts";
-import { getConnector, type ConnectorRunContext } from "@webmana/connectors";
+import {
+  getConnector,
+  loadExternalConnectors,
+  type ConnectorRunContext,
+} from "@webmana/connectors";
 import { decryptSecrets } from "@webmana/crypto";
 import { evaluateAlerts } from "./alerts.js";
 import { detectCostAnomalies } from "./cost-anomaly.js";
@@ -196,6 +200,16 @@ const worker = new Worker(
 
 worker.on("ready", async () => {
   console.log("Webmana worker ready");
+
+  // Discover and register any third-party connector packages (Apache-2.0 SDK).
+  const ext = await loadExternalConnectors();
+  if (ext.loaded.length > 0) {
+    console.log(`[worker] external connectors loaded: ${ext.loaded.join(", ")}`);
+  }
+  for (const f of ext.failed) {
+    console.warn(`[worker] connector "${f.pkg}" skipped: ${f.error}`);
+  }
+
   // Repeatable scan that drives due connector syncs.
   await syncQueue.add(
     "scan",

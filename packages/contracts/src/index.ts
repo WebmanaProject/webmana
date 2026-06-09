@@ -21,8 +21,8 @@ export type ProjectStatus = z.infer<typeof projectStatusSchema>;
 /** Statuses for which the worker should poll monitoring connectors. */
 export const MONITORED_STATUSES: ProjectStatus[] = ["live", "rebuild"];
 
-/** Identifiers for built-in and external connectors. */
-export const connectorIdSchema = z.enum([
+/** Connector ids shipped in this repo. External connectors add their own ids. */
+export const BUILT_IN_CONNECTOR_IDS = [
   // keyless built-ins (Phase 1)
   "ssl",
   "whois",
@@ -41,11 +41,23 @@ export const connectorIdSchema = z.enum([
   // dev/deploy connectors (Phase 6)
   "github",
   "vercel",
-]);
+] as const;
+
+/**
+ * Connector identifier — a lowercase slug (letters, digits, `_`, `-`).
+ * Open by design: third-party connectors (Apache-2.0 SDK) register their own
+ * ids without changing this schema. Built-ins are listed in
+ * {@link BUILT_IN_CONNECTOR_IDS}.
+ */
+export const connectorIdSchema = z
+  .string()
+  .min(1)
+  .max(64)
+  .regex(/^[a-z0-9_-]+$/, "connector id must be a lowercase slug");
 export type ConnectorId = z.infer<typeof connectorIdSchema>;
 
-/** Categories used to group metrics/connectors in the UI. */
-export const metricKindSchema = z.enum([
+/** Suggested metric categories for grouping in the UI. */
+export const BUILT_IN_METRIC_KINDS = [
   "uptime",
   "performance",
   "ssl",
@@ -55,7 +67,17 @@ export const metricKindSchema = z.enum([
   "cost",
   "traffic",
   "deploy",
-]);
+] as const;
+
+/**
+ * Metric category. Open slug so external connectors can introduce new kinds
+ * (e.g. "revenue"); the built-ins live in {@link BUILT_IN_METRIC_KINDS}.
+ */
+export const metricKindSchema = z
+  .string()
+  .min(1)
+  .max(32)
+  .regex(/^[a-z0-9_-]+$/, "metric kind must be a lowercase slug");
 export type MetricKind = z.infer<typeof metricKindSchema>;
 
 /** A single normalized time-series point produced by a connector's normalize(). */

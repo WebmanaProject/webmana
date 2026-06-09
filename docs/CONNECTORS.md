@@ -227,17 +227,53 @@ export const exampleConnector: Connector<ExampleRaw> = {
 };
 ```
 
-## Registering
+## Registering a built-in connector
 
-Three edits make a connector live:
+For a connector that ships in this repo, two edits make it live:
 
-1. Add its id to `connectorIdSchema` in `packages/contracts/src/index.ts` (and a
-   `MetricKind` if you need a new category).
-2. Import and add it to the `connectors` map in
+1. Import and add it to the `builtInConnectors` map in
    `packages/connectors/src/registry.ts`.
-3. Re-export it from `packages/connectors/src/index.ts`.
+2. Re-export it from `packages/connectors/src/index.ts`.
 
 Then build the package: `pnpm --filter @webmana/connectors build`.
+
+Connector ids and metric kinds are open slugs (`^[a-z0-9_-]+$`) — you do **not**
+need to edit any enum. The built-in lists live in `BUILT_IN_CONNECTOR_IDS` and
+`BUILT_IN_METRIC_KINDS` in `@webmana/contracts` for reference only.
+
+## External connector packages (no fork required)
+
+The connector SDK (`@webmana/connectors`, `@webmana/contracts`) is **Apache-2.0**,
+separate from the AGPL-3.0 application. You can publish a connector as its own npm
+package and it will be auto-discovered at worker startup — without forking Webmana
+or being bound by the AGPL.
+
+A connector package must:
+
+1. Depend only on `@webmana/connectors` (for types) — never on the app.
+2. Identify itself in **one** of these ways:
+   - name it `webmana-connector-<something>`, or
+   - add `"webmana": { "connector": true }` to its `package.json`, or
+   - add `"webmana-connector"` to its `package.json` `keywords`.
+3. Export the connector as a named `connector` export (or default export):
+
+   ```ts
+   import type { Connector } from "@webmana/connectors";
+   export const connector: Connector = { id: "stripe", /* … */ };
+   ```
+
+At boot the worker scans `node_modules` for matching packages and registers
+each valid connector. Discovery can be pinned explicitly with the
+`WEBMANA_CONNECTORS` env var (comma-separated module names), which skips the
+scan. Invalid or duplicate connectors are logged and skipped — one bad package
+never blocks the others or stops the worker.
+
+To install a community connector, just add it to the deployment and restart:
+
+```bash
+pnpm --filter @webmana/worker add webmana-connector-stripe
+docker compose up -d --build worker
+```
 
 ## Testing
 

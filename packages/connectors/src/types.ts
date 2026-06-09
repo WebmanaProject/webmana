@@ -1,9 +1,5 @@
 import type { ZodTypeAny } from "zod";
-import type {
-  ConnectorId,
-  NormalizedMetric,
-  ProjectEvent,
-} from "@webmana/contracts";
+import type { NormalizedMetric, ProjectEvent } from "@webmana/contracts";
 
 /** Everything a connector needs to run one sync for one project. */
 export interface ConnectorRunContext {
@@ -30,7 +26,8 @@ export interface ConnectorResult {
  * isolation, and persistence — a connector only implements fetch + normalize.
  */
 export interface Connector<Raw = unknown> {
-  id: ConnectorId;
+  /** Unique lowercase slug, e.g. "ssl" or "stripe". */
+  id: string;
   /** Human-readable name shown in the UI. */
   title: string;
   /** True if the connector needs API credentials (secrets) to run. */
