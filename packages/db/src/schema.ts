@@ -114,6 +114,59 @@ export const projectTags = pgTable(
   (t) => [primaryKey({ columns: [t.projectId, t.tag] })],
 );
 
+/* -------------------------------------------------------------- Domains ---- */
+/**
+ * A registered domain as a first-class asset, independent of projects. One
+ * project may use several domains (primary + aliases + ccTLDs), and a domain may
+ * be parked with no project. Registry/expiry data can be entered manually or
+ * refreshed by a WHOIS connector.
+ */
+export const domains = pgTable(
+  "domains",
+  {
+    id: id(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    /** Fully-qualified domain name, e.g. "example.com". Unique per org. */
+    fqdn: text("fqdn").notNull(),
+    registrar: text("registrar"),
+    /** Expiry date (manual or WHOIS-sourced). Drives renewal alerts. */
+    expiresAt: date("expires_at"),
+    autoRenew: boolean("auto_renew").notNull().default(false),
+    /** Nameservers as a JSON array of strings. */
+    nameservers: jsonb("nameservers").notNull().default(sql`'[]'::jsonb`),
+    /** Registry/transfer lock engaged. */
+    locked: boolean("locked").notNull().default(false),
+    /** Annual renewal cost + ISO currency (manual). */
+    renewalCost: doublePrecision("renewal_cost"),
+    costCurrency: text("cost_currency"),
+    notes: text("notes"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex("domains_org_fqdn_idx").on(t.organizationId, t.fqdn),
+    index("domains_expires_idx").on(t.expiresAt),
+  ],
+);
+
+/** Many-to-many link between projects and domains. */
+export const projectDomains = pgTable(
+  "project_domains",
+  {
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    domainId: uuid("domain_id")
+      .notNull()
+      .references(() => domains.id, { onDelete: "cascade" }),
+    /** True for the project's main domain (at most one should be primary). */
+    primary: boolean("primary").notNull().default(false),
+  },
+  (t) => [primaryKey({ columns: [t.projectId, t.domainId] })],
+);
+
 /** AI-generated natural-language summaries, produced during scheduled syncs. */
 export const projectInsights = pgTable(
   "project_insights",

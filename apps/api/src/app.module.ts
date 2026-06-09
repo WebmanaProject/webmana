@@ -9,6 +9,7 @@ import { InsightsModule } from "./insights/insights.module.js";
 import { ManageModule } from "./manage/manage.module.js";
 import { AuthModule } from "./auth/auth.module.js";
 import { OrgModule } from "./org/org.module.js";
+import { DomainsModule } from "./domains/domains.module.js";
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { OrgModule } from "./org/org.module.js";
     InsightsModule,
     ManageModule,
     OrgModule,
+    DomainsModule,
   ],
   controllers: [HealthController],
 })

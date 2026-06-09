@@ -12,6 +12,7 @@ import { decryptSecrets } from "@webmana/crypto";
 import { evaluateAlerts } from "./alerts.js";
 import { detectCostAnomalies } from "./cost-anomaly.js";
 import { generateInsights, insightsIntervalMs, readAiConfig } from "./insights.js";
+import { checkDomainExpiry } from "./domain-expiry.js";
 
 const connection = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379", {
   maxRetriesPerRequest: null,
@@ -193,6 +194,11 @@ const worker = new Worker(
     if (job.name === "insights") {
       const n = await generateInsights(db, new Date());
       console.log(`[worker] generated ${n} insight(s)`);
+      return;
+    }
+    if (job.name === "domain-expiry") {
+      const n = await checkDomainExpiry(db, new Date());
+      console.log(`[worker] domain-expiry emitted ${n} event(s)`);
     }
   },
   { connection },
@@ -218,6 +224,18 @@ worker.on("ready", async () => {
   );
   // Run one scan immediately on boot.
   await syncQueue.add("scan", {}, { jobId: "scan-boot", removeOnComplete: true });
+
+  // Domain expiry checks twice daily, plus once on boot.
+  await syncQueue.add(
+    "domain-expiry",
+    {},
+    { repeat: { every: 12 * 60 * 60 * 1000 }, jobId: "domain-expiry" },
+  );
+  await syncQueue.add(
+    "domain-expiry",
+    {},
+    { jobId: "domain-expiry-boot", removeOnComplete: true },
+  );
 
   // Scheduled AI insight generation (only when a provider key is configured).
   if (readAiConfig()) {
