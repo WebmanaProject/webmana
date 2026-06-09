@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Logo } from "../components/Header";
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/?$/, "") ?? "http://localhost:4000";
@@ -38,9 +39,14 @@ export default function LoginPage() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6">
-      <div className="rounded-2xl border border-border bg-surface p-8 shadow-sm">
-        <h1 className="text-2xl font-semibold tracking-tight">Webmana</h1>
-        <p className="mt-1 mb-6 text-sm text-text-muted">Sign in to your portfolio.</p>
+      <div className="mb-6 flex flex-col items-center gap-3">
+        <Logo className="h-12 w-12 drop-shadow-[0_4px_16px_rgb(var(--accent)/0.35)]" />
+        <h1 className="text-2xl font-semibold tracking-tight">
+          Web<span className="text-accent-strong">mana</span>
+        </h1>
+      </div>
+      <div className="card animate-fade-in p-8 shadow-card-hover">
+        <p className="mb-6 text-center text-sm text-text-muted">Sign in to your portfolio.</p>
 
         <form onSubmit={submit} className="flex flex-col gap-3">
           <input
@@ -49,7 +55,7 @@ export default function LoginPage() {
             placeholder="Email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="rounded-lg border border-border bg-bg px-3 py-2 text-sm"
+            className="input"
             required
           />
           <input
@@ -58,15 +64,11 @@ export default function LoginPage() {
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="rounded-lg border border-border bg-bg px-3 py-2 text-sm"
+            className="input"
             required
           />
           {error && <p className="text-sm text-red-600">{error}</p>}
-          <button
-            type="submit"
-            disabled={busy}
-            className="mt-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-ink disabled:opacity-50"
-          >
+          <button type="submit" disabled={busy} className="btn-accent mt-2 w-full disabled:opacity-50">
             {busy ? "Signing in…" : "Sign in"}
           </button>
         </form>

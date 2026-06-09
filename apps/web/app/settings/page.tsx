@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useRequireAuth, authFetch, logout } from "../lib/auth";
+import { useRequireAuth, authFetch } from "../lib/auth";
+import { Header } from "../components/Header";
 
 const ROLES = ["admin", "editor", "viewer"];
 
@@ -114,17 +115,13 @@ export default function SettingsPage() {
       : null;
 
   return (
-    <main className="mx-auto max-w-3xl px-6 py-12">
-      <header className="mb-8 flex items-end justify-between">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Settings</h1>
-          <p className="mt-1 text-text-muted">Team members, invitations, and MCP tokens.</p>
-        </div>
-        <nav className="flex items-center gap-4 text-sm">
-          <a href="/dashboard" className="text-accent-strong hover:underline">← Portfolio</a>
-          <button onClick={() => void logout()} className="text-text-muted hover:underline">Logout</button>
-        </nav>
-      </header>
+    <>
+      <Header links={[{ href: "/dashboard", label: "← Portfolio" }, { href: "/manage", label: "Manage" }]} />
+      <main className="mx-auto max-w-3xl px-6 py-10">
+      <div className="mb-8">
+        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
+        <p className="mt-1 text-text-muted">Team members, invitations, and MCP tokens.</p>
+      </div>
 
       {error && <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
@@ -218,6 +215,7 @@ export default function SettingsPage() {
           </ul>
         )}
       </section>
-    </main>
+      </main>
+    </>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRequireAuth, API_BASE as API_URL } from "../../lib/auth";
+import { Header } from "../../components/Header";
 
 type ProjectStatus =
   | "idea"
@@ -197,18 +198,17 @@ export default function ProjectDetailPage({
   const linkEntries = Object.entries(project.links ?? {}).filter(([, v]) => v);
 
   return (
-    <main className="mx-auto max-w-4xl px-6 py-12">
-      <header className="mb-6 flex items-start justify-between">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">{project.name}</h1>
-          {project.domain ? (
-            <p className="mt-1 font-mono text-sm text-text-muted">{project.domain}</p>
-          ) : (
-            <p className="mt-1 text-sm italic text-text-muted/70">no domain yet</p>
-          )}
-        </div>
-        <a href="/dashboard" className="text-sm text-accent-strong hover:underline">← Portfolio</a>
-      </header>
+    <>
+      <Header links={[{ href: "/dashboard", label: "← Portfolio" }, { href: "/manage", label: "Manage" }]} />
+      <main className="mx-auto max-w-4xl px-6 py-10">
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold tracking-tight">{project.name}</h1>
+        {project.domain ? (
+          <p className="mt-1 font-mono text-sm text-text-muted">{project.domain}</p>
+        ) : (
+          <p className="mt-1 text-sm italic text-text-muted/70">no domain yet</p>
+        )}
+      </div>
 
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <label className="text-sm text-text-muted">Status:</label>
@@ -381,6 +381,7 @@ export default function ProjectDetailPage({
           )}
         </div>
       )}
-    </main>
+      </main>
+    </>
   );
 }

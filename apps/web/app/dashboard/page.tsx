@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRequireAuth, logout, API_BASE as API_URL } from "../lib/auth";
+import { useRequireAuth, API_BASE as API_URL } from "../lib/auth";
+import { Header } from "../components/Header";
 
 type ProjectStatus =
   | "idea"
@@ -151,27 +152,26 @@ export default function DashboardPage() {
   }, [projects, activeTag, query]);
 
   return (
-    <main className="mx-auto max-w-[1600px] px-6 py-8">
-      <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Portfolio</h1>
-          <p className="mt-0.5 text-sm text-text-muted">
-            {projects.length} project{projects.length === 1 ? "" : "s"} · drag a card between columns to change its stage
-          </p>
-        </div>
-        <nav className="flex items-center gap-1 text-sm">
-          <button
-            onClick={() => setShowAdd(true)}
-            className="mr-2 rounded-lg bg-accent px-3.5 py-2 text-sm font-medium text-accent-ink shadow-sm transition hover:brightness-95"
-          >
+    <>
+      <Header
+        links={[
+          { href: "/manage", label: "Manage" },
+          { href: "/sla", label: "SLA" },
+          { href: "/settings", label: "Settings" },
+        ]}
+        actions={
+          <button onClick={() => setShowAdd(true)} className="btn-accent mr-1">
             + New project
           </button>
-          <a href="/manage" className="rounded-lg px-3 py-2 text-text-muted hover:bg-bg-subtle hover:text-text">Manage</a>
-          <a href="/sla" className="rounded-lg px-3 py-2 text-text-muted hover:bg-bg-subtle hover:text-text">SLA</a>
-          <a href="/settings" className="rounded-lg px-3 py-2 text-text-muted hover:bg-bg-subtle hover:text-text">Settings</a>
-          <button onClick={() => void logout()} className="rounded-lg px-3 py-2 text-text-muted hover:bg-bg-subtle hover:text-text">Logout</button>
-        </nav>
-      </header>
+        }
+      />
+      <main className="mx-auto max-w-[1600px] px-6 py-8">
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold tracking-tight">Portfolio</h1>
+        <p className="mt-0.5 text-sm text-text-muted">
+          {projects.length} project{projects.length === 1 ? "" : "s"} · drag a card between columns to change its stage
+        </p>
+      </div>
 
       {/* Toolbar: search + tag filter */}
       <div className="mb-5 flex flex-wrap items-center gap-3">
@@ -286,7 +286,8 @@ export default function DashboardPage() {
           }}
         />
       )}
-    </main>
+      </main>
+    </>
   );
 }
 
@@ -471,11 +472,11 @@ function AddProjectModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-text/30 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-xl"
+        className="w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-card-hover animate-pop-in"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">

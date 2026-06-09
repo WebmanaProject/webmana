@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useRequireAuth, logout, API_BASE as API_URL } from "../lib/auth";
+import { useRequireAuth, API_BASE as API_URL } from "../lib/auth";
+import { Header } from "../components/Header";
 
 interface ManagedConnector {
   id: string;
@@ -131,21 +132,13 @@ export default function ManagePage() {
     });
 
   return (
-    <main className="mx-auto max-w-4xl px-6 py-12">
-      <header className="mb-8 flex items-end justify-between">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Manage</h1>
-          <p className="mt-1 text-text-muted">Add and configure projects and connectors.</p>
-        </div>
-        <nav className="flex items-center gap-4 text-sm">
-          <a href="/dashboard" className="text-accent-strong hover:underline">
-            ← Dashboard
-          </a>
-          <button onClick={() => void logout()} className="text-text-muted hover:underline">
-            Logout
-          </button>
-        </nav>
-      </header>
+    <>
+      <Header links={[{ href: "/dashboard", label: "← Dashboard" }, { href: "/settings", label: "Settings" }]} />
+      <main className="mx-auto max-w-4xl px-6 py-10">
+      <div className="mb-8">
+        <h1 className="text-2xl font-semibold tracking-tight">Manage</h1>
+        <p className="mt-1 text-text-muted">Add and configure projects and connectors.</p>
+      </div>
 
       {error && (
         <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -214,7 +207,8 @@ export default function ManagePage() {
           ))}
         </div>
       )}
-    </main>
+      </main>
+    </>
   );
 }
 
