@@ -36,6 +36,10 @@ interface ManagedProject {
   status: ProjectStatus;
   description: string | null;
   links: Record<string, string>;
+  purchaseCost: number | null;
+  renewalCost: number | null;
+  costCurrency: string | null;
+  purchaseDate: string | null;
   tags: string[];
   connectors: ManagedConnector[];
 }
@@ -229,6 +233,10 @@ function ProjectCard({
   const [editDomain, setEditDomain] = useState(project.domain ?? "");
   const [editStatus, setEditStatus] = useState<ProjectStatus>(project.status);
   const [editTags, setEditTags] = useState(project.tags.join(", "));
+  const [editPurchase, setEditPurchase] = useState(project.purchaseCost?.toString() ?? "");
+  const [editRenewal, setEditRenewal] = useState(project.renewalCost?.toString() ?? "");
+  const [editCurrency, setEditCurrency] = useState(project.costCurrency ?? "");
+  const [editPurchaseDate, setEditPurchaseDate] = useState(project.purchaseDate ?? "");
 
   // Add-connector form.
   const [connId, setConnId] = useState(catalog[0]?.id ?? "");
@@ -246,6 +254,10 @@ function ProjectCard({
           domain: editDomain,
           status: editStatus,
           tags: editTags.split(",").map((t) => t.trim()).filter(Boolean),
+          purchaseCost: editPurchase ? Number(editPurchase) : null,
+          renewalCost: editRenewal ? Number(editRenewal) : null,
+          costCurrency: editCurrency || null,
+          purchaseDate: editPurchaseDate || null,
         }),
       }),
     );
@@ -300,6 +312,12 @@ function ProjectCard({
           value={editTags}
           onChange={(e) => setEditTags(e.target.value)}
         />
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <input className="rounded-lg border border-border bg-bg px-3 py-2 text-sm" type="number" step="0.01" placeholder="purchase cost" value={editPurchase} onChange={(e) => setEditPurchase(e.target.value)} />
+        <input className="rounded-lg border border-border bg-bg px-3 py-2 text-sm" type="number" step="0.01" placeholder="renewal / yr" value={editRenewal} onChange={(e) => setEditRenewal(e.target.value)} />
+        <input className="rounded-lg border border-border bg-bg px-3 py-2 text-sm uppercase" maxLength={3} placeholder="currency" value={editCurrency} onChange={(e) => setEditCurrency(e.target.value.toUpperCase())} />
+        <input className="rounded-lg border border-border bg-bg px-3 py-2 text-sm" type="date" title="purchase date" value={editPurchaseDate} onChange={(e) => setEditPurchaseDate(e.target.value)} />
       </div>
       <div className="mt-3 flex gap-2">
         <button

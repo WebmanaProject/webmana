@@ -32,6 +32,8 @@ interface ProjectSummary {
   status: ProjectStatus;
   description: string | null;
   links: Record<string, string>;
+  renewalCost: number | null;
+  costCurrency: string | null;
   tags: string[];
   health: "healthy" | "degraded" | "down" | "unknown";
   connectors: ProjectConnector[];
@@ -266,7 +268,6 @@ export default function DashboardPage() {
                           setDragId(null);
                           setDragOver(null);
                         }}
-                        onStatus={changeStatus}
                       />
                     ))
                   )}
@@ -298,7 +299,6 @@ function ProjectCard({
   dragging,
   onDragStart,
   onDragEnd,
-  onStatus,
 }: {
   project: ProjectSummary;
   insight: string | undefined;
@@ -306,7 +306,6 @@ function ProjectCard({
   dragging: boolean;
   onDragStart: () => void;
   onDragEnd: () => void;
-  onStatus: (id: string, status: ProjectStatus) => void;
 }) {
   const isLive = project.status === "live" || project.status === "rebuild";
   const ssl = project.metrics.find((m) => m.name === "ssl.days_until_expiry");
@@ -402,22 +401,12 @@ function ProjectCard({
         </p>
       )}
 
-      {/* Quick status menu — does not trigger card navigation */}
-      <div data-no-nav className="mt-2 pl-1.5">
-        <select
-          value={project.status}
-          onChange={(e) => onStatus(project.id, e.target.value as ProjectStatus)}
-          onClick={(e) => e.stopPropagation()}
-          className="w-full rounded-md border border-border bg-bg px-2 py-1 text-[11px] text-text-muted opacity-0 transition group-hover:opacity-100 focus:opacity-100"
-          aria-label="Move to status"
-        >
-          {STATUS_OPTIONS.map((s) => (
-            <option key={s.value} value={s.value}>
-              {s.value === project.status ? `● ${s.label}` : `Move to ${s.label}`}
-            </option>
-          ))}
-        </select>
-      </div>
+      {project.renewalCost != null && (
+        <p className="mt-2 pl-1.5 text-[10px] text-text-muted/80">
+          ↻ {project.renewalCost}
+          {project.costCurrency ? ` ${project.costCurrency}` : ""}/yr
+        </p>
+      )}
     </article>
   );
 }
@@ -433,6 +422,10 @@ function AddProjectModal({
   const [domain, setDomain] = useState("");
   const [status, setStatus] = useState<ProjectStatus>("idea");
   const [tags, setTags] = useState("");
+  const [purchaseCost, setPurchaseCost] = useState("");
+  const [renewalCost, setRenewalCost] = useState("");
+  const [currency, setCurrency] = useState("USD");
+  const [purchaseDate, setPurchaseDate] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -450,6 +443,10 @@ function AddProjectModal({
           domain,
           status,
           tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
+          purchaseCost: purchaseCost ? Number(purchaseCost) : null,
+          renewalCost: renewalCost ? Number(renewalCost) : null,
+          costCurrency: currency || null,
+          purchaseDate: purchaseDate || null,
         }),
       });
       if (res.status === 401) {
@@ -527,6 +524,31 @@ function AddProjectModal({
               />
             </label>
           </div>
+
+          <details className="rounded-lg border border-border bg-bg-subtle/50 px-3 py-2 text-xs">
+            <summary className="cursor-pointer select-none font-medium text-text-muted">
+              Domain costs (optional)
+            </summary>
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <label className="font-medium text-text-muted">
+                Purchase cost
+                <input type="number" step="0.01" value={purchaseCost} onChange={(e) => setPurchaseCost(e.target.value)} placeholder="12.00" className="mt-1 w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm focus:border-accent" />
+              </label>
+              <label className="font-medium text-text-muted">
+                Renewal / yr
+                <input type="number" step="0.01" value={renewalCost} onChange={(e) => setRenewalCost(e.target.value)} placeholder="14.00" className="mt-1 w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm focus:border-accent" />
+              </label>
+              <label className="font-medium text-text-muted">
+                Currency
+                <input value={currency} onChange={(e) => setCurrency(e.target.value.toUpperCase())} placeholder="USD" maxLength={3} className="mt-1 w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm uppercase focus:border-accent" />
+              </label>
+              <label className="font-medium text-text-muted">
+                Purchase date
+                <input type="date" value={purchaseDate} onChange={(e) => setPurchaseDate(e.target.value)} className="mt-1 w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm focus:border-accent" />
+              </label>
+            </div>
+          </details>
+
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="mt-2 flex justify-end gap-2">
             <button type="button" onClick={onClose} className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-bg-subtle">

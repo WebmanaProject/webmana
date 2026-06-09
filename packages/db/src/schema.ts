@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  date,
   doublePrecision,
   index,
   jsonb,
@@ -90,6 +91,12 @@ export const projects = pgTable(
     description: text("description"),
     /** Useful links: { repo, prod, staging, design, ... }. */
     links: jsonb("links").notNull().default(sql`'{}'::jsonb`),
+    /** Domain finance (manual): purchase price, annual renewal cost, purchase date. */
+    purchaseCost: doublePrecision("purchase_cost"),
+    renewalCost: doublePrecision("renewal_cost"),
+    /** ISO currency code for the cost fields, e.g. "USD", "PLN". */
+    costCurrency: text("cost_currency"),
+    purchaseDate: date("purchase_date"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },

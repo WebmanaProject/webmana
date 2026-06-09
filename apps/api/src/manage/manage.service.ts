@@ -6,7 +6,15 @@ import { encryptSecrets } from "@webmana/crypto";
 import { projectStatusSchema, type ProjectStatus } from "@webmana/contracts";
 import { DATABASE } from "../db/db.module.js";
 
-export interface CreateProjectInput {
+export interface ProjectCostInput {
+  purchaseCost?: number | null;
+  renewalCost?: number | null;
+  costCurrency?: string | null;
+  /** ISO date "YYYY-MM-DD". */
+  purchaseDate?: string | null;
+}
+
+export interface CreateProjectInput extends ProjectCostInput {
   name: string;
   /** Optional — ideas/early-stage projects may not have a domain yet. */
   domain?: string;
@@ -16,13 +24,29 @@ export interface CreateProjectInput {
   tags?: string[];
 }
 
-export interface UpdateProjectInput {
+export interface UpdateProjectInput extends ProjectCostInput {
   name?: string;
   domain?: string | null;
   status?: ProjectStatus;
   description?: string | null;
   links?: Record<string, string>;
   tags?: string[];
+}
+
+/** Normalize cost fields onto a Drizzle values/patch object. */
+function applyCostFields(
+  patch: Record<string, unknown>,
+  input: ProjectCostInput,
+  partial: boolean,
+): void {
+  const num = (v: number | null | undefined) =>
+    v === null || v === undefined || Number.isNaN(Number(v)) ? null : Number(v);
+  if (!partial || input.purchaseCost !== undefined) patch.purchaseCost = num(input.purchaseCost);
+  if (!partial || input.renewalCost !== undefined) patch.renewalCost = num(input.renewalCost);
+  if (!partial || input.costCurrency !== undefined)
+    patch.costCurrency = input.costCurrency?.trim().toUpperCase() || null;
+  if (!partial || input.purchaseDate !== undefined)
+    patch.purchaseDate = input.purchaseDate?.trim() || null;
 }
 
 export interface UpsertConnectorInput {
@@ -107,6 +131,10 @@ export class ManageService {
       status: ProjectStatus;
       description: string | null;
       links: Record<string, string>;
+      purchaseCost: number | null;
+      renewalCost: number | null;
+      costCurrency: string | null;
+      purchaseDate: string | null;
       tags: string[];
       connectors: {
         id: string;
@@ -125,6 +153,10 @@ export class ManageService {
         status: schema.projects.status,
         description: schema.projects.description,
         links: schema.projects.links,
+        purchaseCost: schema.projects.purchaseCost,
+        renewalCost: schema.projects.renewalCost,
+        costCurrency: schema.projects.costCurrency,
+        purchaseDate: schema.projects.purchaseDate,
       })
       .from(schema.projects)
       .orderBy(schema.projects.name);
@@ -191,16 +223,18 @@ export class ManageService {
     const status = this.parseStatus(input.status) ?? "idea";
 
     const organizationId = await this.defaultOrgId();
+    const values: Record<string, unknown> = {
+      organizationId,
+      name,
+      domain,
+      status,
+      description: input.description?.trim() || null,
+      links: input.links ?? {},
+    };
+    applyCostFields(values, input, false);
     const [created] = await this.db
       .insert(schema.projects)
-      .values({
-        organizationId,
-        name,
-        domain,
-        status,
-        description: input.description?.trim() || null,
-        links: input.links ?? {},
-      })
+      .values(values as typeof schema.projects.$inferInsert)
       .returning({ id: schema.projects.id });
     if (!created) throw new BadRequestException("failed to create project");
 
@@ -237,6 +271,7 @@ export class ManageService {
     if (input.links !== undefined) {
       patch.links = input.links;
     }
+    applyCostFields(patch, input, true);
 
     await this.db
       .update(schema.projects)

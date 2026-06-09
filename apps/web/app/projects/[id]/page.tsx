@@ -49,6 +49,10 @@ interface ProjectSummary {
   status: ProjectStatus;
   description: string | null;
   links: Record<string, string>;
+  purchaseCost: number | null;
+  renewalCost: number | null;
+  costCurrency: string | null;
+  purchaseDate: string | null;
   tags: string[];
   health: "healthy" | "degraded" | "down" | "unknown";
   connectors: ProjectConnector[];
@@ -233,6 +237,20 @@ export default function ProjectDetailPage({
 
       {project.description && (
         <p className="mb-6 rounded-xl border border-border bg-surface p-4 text-sm">{project.description}</p>
+      )}
+
+      {(project.purchaseCost != null || project.renewalCost != null || project.purchaseDate) && (
+        <div className="mb-6 flex flex-wrap gap-4 rounded-xl border border-border bg-surface p-4 text-sm">
+          {project.purchaseCost != null && (
+            <div><span className="text-text-muted">Purchase</span><div className="font-medium">{project.purchaseCost} {project.costCurrency}</div></div>
+          )}
+          {project.renewalCost != null && (
+            <div><span className="text-text-muted">Renewal / yr</span><div className="font-medium">{project.renewalCost} {project.costCurrency}</div></div>
+          )}
+          {project.purchaseDate && (
+            <div><span className="text-text-muted">Bought</span><div className="font-medium">{project.purchaseDate}</div></div>
+          )}
+        </div>
       )}
 
       {linkEntries.length > 0 && (

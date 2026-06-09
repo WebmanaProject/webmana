@@ -38,6 +38,8 @@ export interface ProjectSummary {
   status: string;
   description: string | null;
   links: Record<string, string>;
+  renewalCost: number | null;
+  costCurrency: string | null;
   tags: string[];
   health: HealthBand;
   connectors: ProjectConnector[];
@@ -61,6 +63,8 @@ export class ProjectsService {
         status: schema.projects.status,
         description: schema.projects.description,
         links: schema.projects.links,
+        renewalCost: schema.projects.renewalCost,
+        costCurrency: schema.projects.costCurrency,
       })
       .from(schema.projects)
       .orderBy(schema.projects.name);
