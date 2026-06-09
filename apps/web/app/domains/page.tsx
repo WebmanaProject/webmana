@@ -117,7 +117,7 @@ export default function DomainsPage() {
 
   return (
     <>
-      <Header links={[{ href: "/dashboard", label: "← Portfolio" }, { href: "/manage", label: "Manage" }]} />
+      <Header links={[{ href: "/dashboard", label: "← Portfolio" }, { href: "/finance", label: "Finance" }, { href: "/manage", label: "Manage" }]} />
       <main className="mx-auto max-w-5xl px-6 py-10">
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>

@@ -158,6 +158,7 @@ export default function DashboardPage() {
       <Header
         links={[
           { href: "/domains", label: "Domains" },
+          { href: "/finance", label: "Finance" },
           { href: "/manage", label: "Manage" },
           { href: "/sla", label: "SLA" },
           { href: "/settings", label: "Settings" },

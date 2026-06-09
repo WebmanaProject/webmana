@@ -10,6 +10,7 @@ import { ManageModule } from "./manage/manage.module.js";
 import { AuthModule } from "./auth/auth.module.js";
 import { OrgModule } from "./org/org.module.js";
 import { DomainsModule } from "./domains/domains.module.js";
+import { FinanceModule } from "./finance/finance.module.js";
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { DomainsModule } from "./domains/domains.module.js";
     ManageModule,
     OrgModule,
     DomainsModule,
+    FinanceModule,
   ],
   controllers: [HealthController],
 })
