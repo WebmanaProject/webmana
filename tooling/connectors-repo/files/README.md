@@ -51,6 +51,11 @@ pnpm -r build
 pnpm -r test
 ```
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) — DCO sign-off, package conventions,
+testing, and publishing.
+
 ## License
 
 Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
