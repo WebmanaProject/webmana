@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { Footer } from "./components/Footer";
 
 export const metadata: Metadata = {
   title: "Webmana",
-  description: "Self-hosted single pane of glass for your domains, with a built-in MCP server.",
+  description: "Self-hosted command center for your domain portfolio, with a built-in MCP server.",
 };
 
 /** Applies the saved theme before paint to avoid a flash of the wrong theme. */
@@ -15,7 +16,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInit }} />
       </head>
-      <body className="min-h-screen bg-bg text-text antialiased">{children}</body>
+      <body className="flex min-h-screen flex-col bg-bg text-text antialiased">
+        <div className="flex-1">{children}</div>
+        <Footer />
+      </body>
     </html>
   );
 }
