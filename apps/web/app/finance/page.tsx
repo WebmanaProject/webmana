@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRequireAuth, authFetch } from "../lib/auth";
-import { Header } from "../components/Header";
 
 interface CurrencyTotal {
   currency: string;
@@ -77,9 +76,7 @@ export default function FinancePage() {
   }, [reload]);
 
   return (
-    <>
-      <Header links={[{ href: "/dashboard", label: "← Portfolio" }, { href: "/domains", label: "Domains" }]} />
-      <main className="mx-auto max-w-5xl px-6 py-10">
+    <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
         <div className="mb-6">
           <h1 className="text-2xl font-semibold tracking-tight">Finance</h1>
           <p className="mt-0.5 text-sm text-text-muted">Recurring renewals, cloud spend, and upcoming payments.</p>
@@ -215,7 +212,6 @@ export default function FinancePage() {
             </p>
           </>
         )}
-      </main>
-    </>
+    </main>
   );
 }

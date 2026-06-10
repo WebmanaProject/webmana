@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRequireAuth, API_BASE as API_URL } from "../lib/auth";
-import { Header } from "../components/Header";
 
 type ProjectStatus =
   | "idea"
@@ -154,27 +153,17 @@ export default function DashboardPage() {
   }, [projects, activeTag, query]);
 
   return (
-    <>
-      <Header
-        links={[
-          { href: "/domains", label: "Domains" },
-          { href: "/finance", label: "Finance" },
-          { href: "/manage", label: "Manage" },
-          { href: "/sla", label: "SLA" },
-          { href: "/settings", label: "Settings" },
-        ]}
-        actions={
-          <button onClick={() => setShowAdd(true)} className="btn-accent mr-1">
-            + New project
-          </button>
-        }
-      />
-      <main className="mx-auto max-w-[1600px] px-6 py-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight">Portfolio</h1>
-        <p className="mt-0.5 text-sm text-text-muted">
-          {projects.length} project{projects.length === 1 ? "" : "s"} · drag a card between columns to change its stage
-        </p>
+    <main className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 sm:py-8">
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Portfolio</h1>
+          <p className="mt-0.5 text-sm text-text-muted">
+            {projects.length} project{projects.length === 1 ? "" : "s"} · drag a card between columns to change its stage
+          </p>
+        </div>
+        <button onClick={() => setShowAdd(true)} className="btn-accent shrink-0">
+          + New project
+        </button>
       </div>
 
       {/* Toolbar: search + tag filter */}
@@ -289,8 +278,7 @@ export default function DashboardPage() {
           }}
         />
       )}
-      </main>
-    </>
+    </main>
   );
 }
 

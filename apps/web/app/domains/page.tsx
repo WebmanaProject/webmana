@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRequireAuth, authFetch } from "../lib/auth";
-import { Header } from "../components/Header";
 
 interface DomainProject {
   id: string;
@@ -116,9 +115,7 @@ export default function DomainsPage() {
   const upcoming = domains.filter((d) => d.daysUntilExpiry != null && d.daysUntilExpiry <= 60 && !d.autoRenew).length;
 
   return (
-    <>
-      <Header links={[{ href: "/dashboard", label: "← Portfolio" }, { href: "/finance", label: "Finance" }, { href: "/manage", label: "Manage" }]} />
-      <main className="mx-auto max-w-5xl px-6 py-10">
+    <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Domains</h1>
@@ -236,7 +233,6 @@ export default function DomainsPage() {
             </table>
           </div>
         )}
-      </main>
-    </>
+    </main>
   );
 }

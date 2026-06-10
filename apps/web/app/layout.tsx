@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Footer } from "./components/Footer";
+import { Chrome } from "./components/Chrome";
 
 export const metadata: Metadata = {
   title: "Webmana",
@@ -17,8 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: themeInit }} />
       </head>
       <body className="flex min-h-screen flex-col bg-bg text-text antialiased">
-        <div className="flex-1">{children}</div>
-        <Footer />
+        <Chrome>{children}</Chrome>
       </body>
     </html>
   );

@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRequireAuth, API_BASE as API_URL } from "../lib/auth";
-import { Header } from "../components/Header";
 
 interface ManagedConnector {
   id: string;
@@ -136,9 +135,7 @@ export default function ManagePage() {
     });
 
   return (
-    <>
-      <Header links={[{ href: "/dashboard", label: "← Dashboard" }, { href: "/settings", label: "Settings" }]} />
-      <main className="mx-auto max-w-4xl px-6 py-10">
+    <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-10">
       <div className="mb-8">
         <h1 className="text-2xl font-semibold tracking-tight">Manage</h1>
         <p className="mt-1 text-text-muted">Add and configure projects and connectors.</p>
@@ -211,8 +208,7 @@ export default function ManagePage() {
           ))}
         </div>
       )}
-      </main>
-    </>
+    </main>
   );
 }
 

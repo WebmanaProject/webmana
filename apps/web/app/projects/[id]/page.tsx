@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRequireAuth, API_BASE as API_URL } from "../../lib/auth";
-import { Header } from "../../components/Header";
 
 type ProjectStatus =
   | "idea"
@@ -202,9 +201,7 @@ export default function ProjectDetailPage({
   const linkEntries = Object.entries(project.links ?? {}).filter(([, v]) => v);
 
   return (
-    <>
-      <Header links={[{ href: "/dashboard", label: "← Portfolio" }, { href: "/manage", label: "Manage" }]} />
-      <main className="mx-auto max-w-4xl px-6 py-10">
+    <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-10">
       <div className="mb-6">
         <h1 className="text-2xl font-semibold tracking-tight">{project.name}</h1>
         {project.domain ? (
@@ -399,7 +396,6 @@ export default function ProjectDetailPage({
           )}
         </div>
       )}
-      </main>
-    </>
+    </main>
   );
 }
