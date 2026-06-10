@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Domains & FinOps**: domains are first-class assets (registrar, expiry,
+  auto-renew, nameservers, costs) with 60/30/7-day renewal alerts and a
+  many-to-many link to projects; a `/finance` dashboard aggregates annual
+  renewals and cloud spend per currency with upcoming payments. Migrations
+  0004–0005.
+- **Pluggable connectors**: the Apache-2.0 SDK is split into the standalone
+  `webmana-connectors` repo; the worker auto-discovers third-party
+  `webmana-connector-*` packages at boot (no fork). Includes a
+  `create-webmana-connector` scaffold and a verified repo-split kit.
+
+### Changed
+
+- **Licensing/docs**: bundled the full verbatim AGPL-3.0 and Apache-2.0 license
+  texts (were stubs); rewrote the README for the self-hosted portfolio app; added
+  an AGPL §13 "Source code" link in the app footer (`SOURCE_URL`).
+
+### Earlier in this cycle
+
 - **Portfolio lifecycle**: projects now have a status (idea → in_progress →
   rebuild → live → paused → archived), an optional domain, a description, and
   links. The dashboard is a kanban board grouped by status with inline status

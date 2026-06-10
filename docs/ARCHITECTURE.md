@@ -98,6 +98,21 @@ interface Connector {
 **Built-in connectors that need no external keys** (work right after `docker compose up`):
 SSL expiry, WHOIS, DNS, HTTP uptime. The first end-to-end reference connector is **SSL expiry**.
 
+### Two-repo model (Apache-2.0 SDK)
+
+The connector SDK (`packages/contracts`, `packages/connectors`) is **Apache-2.0**
+and mirrored to a standalone public repo,
+[`webmana-connectors`](https://github.com/WebmanaProject/webmana-connectors), so
+third parties can write connectors under a permissive license, separate from the
+AGPL app. `connectorId` and `metricKind` are open lowercase slugs, so external
+connectors register their own ids without editing the core.
+
+At startup the worker scans `node_modules` for packages named
+`webmana-connector-*` (or opting in via `package.json`), validates each
+connector's shape, and registers it into a mutable registry — **no fork
+required**. The `tooling/connectors-repo/` kit extracts the SDK into the
+standalone repo (verified to `pnpm install && build` on its own).
+
 ## AI insights (optional)
 
 A scheduled worker job summarizes each project's recent metrics and events into

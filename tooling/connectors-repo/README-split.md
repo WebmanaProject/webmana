@@ -56,7 +56,6 @@ Once the packages are published from `webmana-connectors`:
 2. Remove `packages/contracts` and `packages/connectors` from this repo (they
    now live upstream), or keep them as a git submodule for local dev.
 
-⚠️ Before publishing: replace the stub `connectors/LICENSE` / `contracts/LICENSE`
-and `files/LICENSE` with the **full** Apache-2.0 text from
-<https://www.apache.org/licenses/LICENSE-2.0.txt> (it could not be fetched in
-the offline build environment).
+The LICENSE files already carry the full Apache-2.0 text. The assembled repo has
+been verified to `pnpm install && pnpm build` standalone, producing dist output
+for both `contracts` and `connectors`.
