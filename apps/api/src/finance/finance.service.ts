@@ -47,6 +47,23 @@ export interface ProjectProfit {
   margin: number;
 }
 
+/** A budget with its annualized target and actual spend. */
+export interface BudgetStatus {
+  id: string;
+  scope: "project" | "tag" | "org";
+  ref: string | null;
+  label: string;
+  period: "monthly" | "annual";
+  amount: number;
+  currency: string;
+  /** Budget normalized to an annual figure (monthly × 12). */
+  annualBudget: number;
+  /** Annualized actual cost in scope (domains + cloud run-rate). */
+  annualActual: number;
+  /** annualActual / annualBudget as a percentage. */
+  pctUsed: number;
+}
+
 export interface FinanceReport {
   generatedAt: string;
   /** Sum of recurring annual renewals (domains + projects), per currency. */
@@ -59,6 +76,8 @@ export interface FinanceReport {
   upcomingRenewals: UpcomingRenewal[];
   /** Per-project annualized revenue vs cost (worst margin first). */
   profitability: ProjectProfit[];
+  /** Budgets with target vs actual (most-over first). */
+  budgets: BudgetStatus[];
   /** Flat list of every cost line, for the breakdown table. */
   lines: CostLine[];
 }
@@ -230,6 +249,70 @@ export class FinanceService {
     // Worst margin first so loss-makers surface at the top.
     profitability.sort((a, b) => a.margin - b.margin);
 
+    // --- Budgets: target vs annualized actual cost ---
+    const annualCostByProject = (pid: string): number =>
+      Math.round(((domainCostByProject.get(pid)?.amount ?? 0) + (cloudByProject.get(pid)?.amount ?? 0)) * 100) / 100;
+
+    const [org] = await this.db
+      .select({ id: schema.organizations.id })
+      .from(schema.organizations)
+      .orderBy(asc(schema.organizations.createdAt))
+      .limit(1);
+
+    const budgets: BudgetStatus[] = [];
+    if (org) {
+      const [budgetRows, tagRows] = await Promise.all([
+        this.db
+          .select({
+            id: schema.budgets.id,
+            scope: schema.budgets.scope,
+            ref: schema.budgets.ref,
+            period: schema.budgets.period,
+            amount: schema.budgets.amount,
+            currency: schema.budgets.currency,
+          })
+          .from(schema.budgets)
+          .where(eq(schema.budgets.organizationId, org.id)),
+        this.db
+          .select({ projectId: schema.projectTags.projectId, tag: schema.projectTags.tag })
+          .from(schema.projectTags),
+      ]);
+
+      const allProjectIds = [...projectNames.keys()];
+      const totalAnnualCost = allProjectIds.reduce((sum, pid) => sum + annualCostByProject(pid), 0);
+
+      for (const b of budgetRows) {
+        let annualActual = 0;
+        let label: string;
+        if (b.scope === "org") {
+          annualActual = totalAnnualCost;
+          label = "Organization";
+        } else if (b.scope === "project") {
+          annualActual = annualCostByProject(b.ref ?? "");
+          label = projectNames.get(b.ref ?? "") ?? "Unknown project";
+        } else {
+          const ids = tagRows.filter((t) => t.tag === b.ref).map((t) => t.projectId);
+          annualActual = ids.reduce((sum, pid) => sum + annualCostByProject(pid), 0);
+          label = `#${b.ref}`;
+        }
+        annualActual = Math.round(annualActual * 100) / 100;
+        const annualBudget = Math.round((b.period === "monthly" ? b.amount * 12 : b.amount) * 100) / 100;
+        budgets.push({
+          id: b.id,
+          scope: b.scope,
+          ref: b.ref,
+          label,
+          period: b.period,
+          amount: b.amount,
+          currency: b.currency,
+          annualBudget,
+          annualActual,
+          pctUsed: annualBudget > 0 ? Math.round((annualActual / annualBudget) * 100) : 0,
+        });
+      }
+      budgets.sort((a, b) => b.pctUsed - a.pctUsed);
+    }
+
     upcomingRenewals.sort((a, b) => a.daysUntil - b.daysUntil);
 
     return {
@@ -239,6 +322,7 @@ export class FinanceService {
       mrrByCurrency: [...mrr.values()].sort((a, b) => b.total - a.total),
       upcomingRenewals,
       profitability,
+      budgets,
       lines: lines.sort((a, b) => b.amount - a.amount),
     };
   }

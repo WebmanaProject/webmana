@@ -86,6 +86,21 @@ export interface CreateAlertChannelInput {
   config: Record<string, unknown>;
 }
 
+export interface CreateBudgetInput {
+  scope: "project" | "tag" | "org";
+  /** Project id (scope=project) or tag (scope=tag); ignored for org. */
+  ref?: string | null;
+  period?: "monthly" | "annual";
+  amount: number;
+  currency: string;
+}
+
+export interface UpdateBudgetInput {
+  period?: "monthly" | "annual";
+  amount?: number;
+  currency?: string;
+}
+
 const OPERATORS = ["lt", "lte", "gt", "gte", "eq"];
 const SEVERITIES = ["info", "warning", "critical"];
 const CHANNEL_KINDS = ["webhook", "slack", "email"];
@@ -715,5 +730,81 @@ export class ManageService {
       )
       .returning({ id: schema.alertChannels.id });
     if (deleted.length === 0) throw new NotFoundException("channel not found");
+  }
+
+  /* ------------------------------------------------------------ Budgets ---- */
+
+  async listBudgets() {
+    const orgId = await this.defaultOrgId();
+    return this.db
+      .select({
+        id: schema.budgets.id,
+        scope: schema.budgets.scope,
+        ref: schema.budgets.ref,
+        period: schema.budgets.period,
+        amount: schema.budgets.amount,
+        currency: schema.budgets.currency,
+      })
+      .from(schema.budgets)
+      .where(eq(schema.budgets.organizationId, orgId))
+      .orderBy(schema.budgets.createdAt);
+  }
+
+  async createBudget(input: CreateBudgetInput): Promise<{ id: string }> {
+    const SCOPES = ["project", "tag", "org"];
+    const PERIODS = ["monthly", "annual"];
+    if (!SCOPES.includes(input.scope)) throw new BadRequestException(`scope must be one of: ${SCOPES.join(", ")}`);
+    const period = input.period ?? "monthly";
+    if (!PERIODS.includes(period)) throw new BadRequestException("invalid period");
+    if (typeof input.amount !== "number" || Number.isNaN(input.amount) || input.amount <= 0) {
+      throw new BadRequestException("amount must be a positive number");
+    }
+    const currency = input.currency?.trim().toUpperCase();
+    if (!currency) throw new BadRequestException("currency is required");
+    const ref = input.scope === "org" ? null : input.ref?.trim() || null;
+    if (input.scope !== "org" && !ref) throw new BadRequestException(`${input.scope} budget requires a ref`);
+
+    const orgId = await this.defaultOrgId();
+    const [created] = await this.db
+      .insert(schema.budgets)
+      .values({ organizationId: orgId, scope: input.scope, ref, period, amount: input.amount, currency })
+      .returning({ id: schema.budgets.id });
+    if (!created) throw new BadRequestException("failed to create budget");
+    return { id: created.id };
+  }
+
+  async updateBudget(id: string, input: UpdateBudgetInput): Promise<void> {
+    const orgId = await this.defaultOrgId();
+    const patch: Record<string, unknown> = { updatedAt: new Date() };
+    if (input.period !== undefined) {
+      if (!["monthly", "annual"].includes(input.period)) throw new BadRequestException("invalid period");
+      patch.period = input.period;
+    }
+    if (input.amount !== undefined) {
+      if (typeof input.amount !== "number" || Number.isNaN(input.amount) || input.amount <= 0) {
+        throw new BadRequestException("amount must be a positive number");
+      }
+      patch.amount = input.amount;
+    }
+    if (input.currency !== undefined) {
+      const cur = input.currency.trim().toUpperCase();
+      if (!cur) throw new BadRequestException("currency cannot be empty");
+      patch.currency = cur;
+    }
+    const updated = await this.db
+      .update(schema.budgets)
+      .set(patch)
+      .where(and(eq(schema.budgets.id, id), eq(schema.budgets.organizationId, orgId)))
+      .returning({ id: schema.budgets.id });
+    if (updated.length === 0) throw new NotFoundException("budget not found");
+  }
+
+  async deleteBudget(id: string): Promise<void> {
+    const orgId = await this.defaultOrgId();
+    const deleted = await this.db
+      .delete(schema.budgets)
+      .where(and(eq(schema.budgets.id, id), eq(schema.budgets.organizationId, orgId)))
+      .returning({ id: schema.budgets.id });
+    if (deleted.length === 0) throw new NotFoundException("budget not found");
   }
 }

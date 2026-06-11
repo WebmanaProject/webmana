@@ -19,6 +19,8 @@ import {
   type AssignDomainInput,
   type CreateNoteInput,
   type UpdateNoteInput,
+  type CreateBudgetInput,
+  type UpdateBudgetInput,
 } from "./manage.service.js";
 import { AuthGuard } from "../auth/auth.guard.js";
 import { RolesGuard, Roles } from "../auth/roles.guard.js";
@@ -180,5 +182,31 @@ export class ManageController {
   @HttpCode(200)
   deleteAlertChannel(@Param("channelId") channelId: string) {
     return this.manage.deleteAlertChannel(channelId).then(() => ({ ok: true }));
+  }
+
+  /* ------------------------------------------------------------ Budgets ---- */
+
+  @Get("budgets")
+  listBudgets() {
+    return this.manage.listBudgets();
+  }
+
+  @Post("budgets")
+  @Roles("editor")
+  createBudget(@Body() body: CreateBudgetInput) {
+    return this.manage.createBudget(body);
+  }
+
+  @Patch("budgets/:id")
+  @Roles("editor")
+  updateBudget(@Param("id") id: string, @Body() body: UpdateBudgetInput) {
+    return this.manage.updateBudget(id, body).then(() => ({ ok: true }));
+  }
+
+  @Delete("budgets/:id")
+  @Roles("editor")
+  @HttpCode(200)
+  deleteBudget(@Param("id") id: string) {
+    return this.manage.deleteBudget(id).then(() => ({ ok: true }));
   }
 }

@@ -33,6 +33,18 @@ interface ProjectProfit {
   annualCost: number;
   margin: number;
 }
+interface BudgetStatus {
+  id: string;
+  scope: "project" | "tag" | "org";
+  ref: string | null;
+  label: string;
+  period: "monthly" | "annual";
+  amount: number;
+  currency: string;
+  annualBudget: number;
+  annualActual: number;
+  pctUsed: number;
+}
 interface FinanceReport {
   generatedAt: string;
   annualByCurrency: CurrencyTotal[];
@@ -40,6 +52,7 @@ interface FinanceReport {
   mrrByCurrency: CurrencyTotal[];
   upcomingRenewals: UpcomingRenewal[];
   profitability: ProjectProfit[];
+  budgets: BudgetStatus[];
   lines: CostLine[];
 }
 
@@ -59,21 +72,32 @@ const KIND_META: Record<CostLine["kind"], { label: string; cls: string }> = {
   cloud: { label: "Cloud", cls: "bg-sky-100 text-sky-700" },
 };
 
+interface ProjectLite {
+  id: string;
+  name: string;
+  tags: string[];
+}
+
 export default function FinancePage() {
   useRequireAuth();
   const [report, setReport] = useState<FinanceReport | null>(null);
+  const [projects, setProjects] = useState<ProjectLite[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     try {
-      const res = await authFetch("/api/finance");
+      const [res, pRes] = await Promise.all([authFetch("/api/finance"), authFetch("/api/projects")]);
       if (res.status === 401) {
         window.location.href = "/login";
         return;
       }
       if (!res.ok) throw new Error(`API ${res.status}`);
       setReport((await res.json()) as FinanceReport);
+      if (pRes.ok) {
+        const rows = (await pRes.json()) as { id: string; name: string; tags: string[] }[];
+        setProjects(rows.map((p) => ({ id: p.id, name: p.name, tags: p.tags ?? [] })));
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -150,6 +174,9 @@ export default function FinancePage() {
                 <p className="mt-1 text-xs text-text-muted">latest AWS Cost Explorer reading</p>
               </div>
             </div>
+
+            {/* Budgets */}
+            <BudgetsSection budgets={report.budgets} projects={projects} onChanged={reload} />
 
             {/* Profitability */}
             {report.profitability.length > 0 && (
@@ -280,5 +307,155 @@ export default function FinancePage() {
           </>
         )}
     </main>
+  );
+}
+
+/* ------------------------------------------------------------- Budgets ----- */
+
+function barClass(pct: number): string {
+  if (pct >= 100) return "bg-red-500";
+  if (pct >= 80) return "bg-amber-400";
+  return "bg-accent";
+}
+
+function BudgetsSection({
+  budgets,
+  projects,
+  onChanged,
+}: {
+  budgets: FinanceReport["budgets"];
+  projects: ProjectLite[];
+  onChanged: () => void;
+}) {
+  const [scope, setScope] = useState<"project" | "tag" | "org">("project");
+  const [ref, setRef] = useState("");
+  const [amount, setAmount] = useState("");
+  const [currency, setCurrency] = useState("USD");
+  const [period, setPeriod] = useState<"monthly" | "annual">("monthly");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const allTags = Array.from(new Set(projects.flatMap((p) => p.tags))).sort();
+
+  async function add() {
+    setBusy(true);
+    setErr(null);
+    try {
+      const body: Record<string, unknown> = { scope, amount: Number(amount), currency, period };
+      if (scope === "project") body.ref = ref;
+      if (scope === "tag") body.ref = ref;
+      const res = await authFetch("/api/manage/budgets", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const b = (await res.json().catch(() => ({}))) as { message?: string | string[] };
+        throw new Error(Array.isArray(b.message) ? b.message.join(", ") : b.message ?? `Failed (${res.status})`);
+      }
+      setAmount("");
+      setRef("");
+      onChanged();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove(id: string) {
+    if (!confirm("Delete this budget?")) return;
+    await authFetch(`/api/manage/budgets/${id}`, { method: "DELETE" });
+    onChanged();
+  }
+
+  const needsRef = scope !== "org";
+  const canAdd = !busy && Number(amount) > 0 && (!needsRef || ref.trim() !== "");
+
+  return (
+    <section className="mb-8">
+      <h2 className="mb-3 text-base font-semibold">Budgets</h2>
+
+      {budgets.length > 0 && (
+        <ul className="mb-4 flex flex-col gap-3">
+          {budgets.map((b) => (
+            <li key={b.id} className="card p-4">
+              <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+                <span className="text-sm font-medium">
+                  {b.label}{" "}
+                  <span className="text-xs font-normal text-text-muted">
+                    · {b.scope} · {fmt(b.amount)} {b.currency}/{b.period === "monthly" ? "mo" : "yr"}
+                  </span>
+                </span>
+                <span className="flex items-center gap-3 text-sm">
+                  <span className={`tabular-nums font-medium ${b.pctUsed >= 100 ? "text-red-600" : "text-text"}`}>
+                    {b.pctUsed}%
+                  </span>
+                  <button onClick={() => void remove(b.id)} className="text-xs text-text-muted hover:text-red-600">
+                    Delete
+                  </button>
+                </span>
+              </div>
+              <div className="h-2 w-full overflow-hidden rounded-full bg-bg-subtle">
+                <div className={`h-full rounded-full ${barClass(b.pctUsed)}`} style={{ width: `${Math.min(b.pctUsed, 100)}%` }} />
+              </div>
+              <div className="mt-1.5 flex justify-between text-xs text-text-muted tabular-nums">
+                <span>{fmt(b.annualActual)} {b.currency} spent</span>
+                <span>of {fmt(b.annualBudget)} {b.currency}/yr</span>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {err && <p className="mb-2 text-sm text-red-600">{err}</p>}
+
+      <div className="flex flex-wrap items-end gap-2 rounded-2xl border border-dashed border-border p-3">
+        <label className="text-xs font-medium text-text-muted">
+          Scope
+          <select className="input mt-1 block" value={scope} onChange={(e) => { setScope(e.target.value as typeof scope); setRef(""); }}>
+            <option value="project">Project</option>
+            <option value="tag">Tag</option>
+            <option value="org">Whole org</option>
+          </select>
+        </label>
+        {scope === "project" && (
+          <label className="text-xs font-medium text-text-muted">
+            Project
+            <select className="input mt-1 block min-w-[10rem]" value={ref} onChange={(e) => setRef(e.target.value)}>
+              <option value="">Select…</option>
+              {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </label>
+        )}
+        {scope === "tag" && (
+          <label className="text-xs font-medium text-text-muted">
+            Tag
+            <input className="input mt-1 block" list="budget-tags" value={ref} onChange={(e) => setRef(e.target.value)} placeholder="client" />
+            <datalist id="budget-tags">{allTags.map((t) => <option key={t} value={t} />)}</datalist>
+          </label>
+        )}
+        <label className="text-xs font-medium text-text-muted">
+          Amount
+          <input className="input mt-1 block w-28" type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="50" />
+        </label>
+        <label className="text-xs font-medium text-text-muted">
+          Currency
+          <input className="input mt-1 block w-20 uppercase" maxLength={3} value={currency} onChange={(e) => setCurrency(e.target.value.toUpperCase())} />
+        </label>
+        <label className="text-xs font-medium text-text-muted">
+          Period
+          <select className="input mt-1 block" value={period} onChange={(e) => setPeriod(e.target.value as typeof period)}>
+            <option value="monthly">monthly</option>
+            <option value="annual">annual</option>
+          </select>
+        </label>
+        <button onClick={add} disabled={!canAdd} className="btn-accent">Add budget</button>
+      </div>
+      <p className="mt-2 text-xs text-text-muted">
+        Usage compares each budget (annualized) to current annual cost in scope. FX is not applied — keep a
+        budget’s currency consistent with its costs.
+      </p>
+    </section>
   );
 }

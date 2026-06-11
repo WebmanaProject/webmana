@@ -36,6 +36,8 @@ export const alertChannelKindEnum = pgEnum("alert_channel_kind", [
   "slack",
   "email",
 ]);
+export const budgetScopeEnum = pgEnum("budget_scope", ["project", "tag", "org"]);
+export const budgetPeriodEnum = pgEnum("budget_period", ["monthly", "annual"]);
 
 /* ----------------------------------------------------------------- RBAC ---- */
 
@@ -320,6 +322,28 @@ export const alertHistory = pgTable(
     delivered: boolean("delivered").notNull().default(false),
   },
   (t) => [index("alert_history_rule_time_idx").on(t.ruleId, t.firedAt)],
+);
+
+/* -------------------------------------------------------------- Budgets ---- */
+/** A spending budget scoped to a project, a tag, or the whole org. */
+export const budgets = pgTable(
+  "budgets",
+  {
+    id: id(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    scope: budgetScopeEnum("scope").notNull(),
+    /** Project id (scope=project) or tag (scope=tag); null for the whole org. */
+    ref: text("ref"),
+    period: budgetPeriodEnum("period").notNull().default("monthly"),
+    amount: doublePrecision("amount").notNull(),
+    /** ISO currency code, e.g. "USD". */
+    currency: text("currency").notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("budgets_org_idx").on(t.organizationId)],
 );
 
 /* --------------------------------------------------------- Invitations ----- */
