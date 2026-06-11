@@ -22,12 +22,26 @@ interface McpToken {
   role: string;
   createdAt: string;
 }
+interface AlertChannel {
+  id: string;
+  kind: "webhook" | "slack" | "email";
+  config: Record<string, string>;
+  minSeverity: "info" | "warning" | "critical";
+  tagFilter: string | null;
+}
+
+const CHANNEL_TARGET_KEY: Record<AlertChannel["kind"], string> = {
+  webhook: "url",
+  slack: "webhookUrl",
+  email: "to",
+};
 
 export default function SettingsPage() {
   const { user, loading: authLoading } = useRequireAuth();
   const [members, setMembers] = useState<Member[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [tokens, setTokens] = useState<McpToken[]>([]);
+  const [channels, setChannels] = useState<AlertChannel[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [forbidden, setForbidden] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -40,6 +54,11 @@ export default function SettingsPage() {
   const [tokenName, setTokenName] = useState("");
   const [tokenRole, setTokenRole] = useState("viewer");
   const [newToken, setNewToken] = useState<string | null>(null);
+  // Alert channel form
+  const [chKind, setChKind] = useState<"webhook" | "slack" | "email">("webhook");
+  const [chTarget, setChTarget] = useState("");
+  const [chMinSeverity, setChMinSeverity] = useState<"info" | "warning" | "critical">("warning");
+  const [chTag, setChTag] = useState("");
 
   const reload = useCallback(async () => {
     const res = await authFetch("/api/org/members");
@@ -48,12 +67,14 @@ export default function SettingsPage() {
       return;
     }
     if (res.ok) setMembers((await res.json()) as Member[]);
-    const [iRes, tRes] = await Promise.all([
+    const [iRes, tRes, cRes] = await Promise.all([
       authFetch("/api/org/invitations"),
       authFetch("/api/org/mcp-tokens"),
+      authFetch("/api/manage/alert-channels"),
     ]);
     if (iRes.ok) setInvitations((await iRes.json()) as Invitation[]);
     if (tRes.ok) setTokens((await tRes.json()) as McpToken[]);
+    if (cRes.ok) setChannels((await cRes.json()) as AlertChannel[]);
   }, []);
 
   useEffect(() => {
@@ -98,6 +119,23 @@ export default function SettingsPage() {
       const body = (await res.json()) as { token: string };
       setNewToken(body.token);
       setTokenName("");
+    });
+
+  const createChannel = () =>
+    run(async () => {
+      const res = await authFetch("/api/manage/alert-channels", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          kind: chKind,
+          config: { [CHANNEL_TARGET_KEY[chKind]]: chTarget.trim() },
+          minSeverity: chMinSeverity,
+          tagFilter: chTag.trim() || null,
+        }),
+      });
+      if (!res.ok) throw new Error(`channel failed (${res.status})`);
+      setChTarget("");
+      setChTag("");
     });
 
   if (authLoading) return <main className="mx-auto max-w-3xl px-6 py-12 text-text-muted">Loading…</main>;
@@ -179,6 +217,50 @@ export default function SettingsPage() {
             ))}
           </ul>
         )}
+      </section>
+
+      {/* Alert channels */}
+      <section className="mb-8 rounded-2xl border border-border bg-surface p-6 shadow-sm">
+        <h2 className="mb-1 text-lg font-semibold">Alert channels</h2>
+        <p className="mb-4 text-sm text-text-muted">Where alerts are delivered. Route by minimum severity and an optional project tag.</p>
+        {channels.length > 0 && (
+          <ul className="mb-4 flex flex-col gap-2">
+            {channels.map((c) => (
+              <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-bg-subtle px-3 py-2 text-sm">
+                <span className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium capitalize">{c.kind}</span>
+                  <code className="break-all text-xs text-text-muted">{c.config[CHANNEL_TARGET_KEY[c.kind]] ?? ""}</code>
+                  <span className="rounded-full bg-bg px-2 py-0.5 text-xs text-text-muted">≥ {c.minSeverity}</span>
+                  {c.tagFilter && <span className="rounded bg-bg px-1.5 py-0.5 text-xs text-text-muted">#{c.tagFilter}</span>}
+                </span>
+                <button
+                  onClick={() => { if (confirm("Delete this channel?")) void run(() => authFetch(`/api/manage/alert-channels/${c.id}`, { method: "DELETE" }).then((r) => { if (!r.ok) throw new Error("delete failed"); })); }}
+                  className="rounded border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+                >Delete</button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="flex flex-wrap items-end gap-2">
+          <select value={chKind} onChange={(e) => setChKind(e.target.value as typeof chKind)} className="rounded-lg border border-border bg-bg px-3 py-2 text-sm">
+            <option value="webhook">Webhook</option>
+            <option value="slack">Slack</option>
+            <option value="email">Email</option>
+          </select>
+          <input
+            value={chTarget}
+            onChange={(e) => setChTarget(e.target.value)}
+            placeholder={chKind === "email" ? "alerts@example.com" : "https://…"}
+            className="min-w-[12rem] flex-1 rounded-lg border border-border bg-bg px-3 py-2 text-sm"
+          />
+          <select value={chMinSeverity} onChange={(e) => setChMinSeverity(e.target.value as typeof chMinSeverity)} className="rounded-lg border border-border bg-bg px-3 py-2 text-sm" title="Minimum severity">
+            <option value="info">≥ info</option>
+            <option value="warning">≥ warning</option>
+            <option value="critical">≥ critical</option>
+          </select>
+          <input value={chTag} onChange={(e) => setChTag(e.target.value)} placeholder="tag (optional)" className="w-32 rounded-lg border border-border bg-bg px-3 py-2 text-sm" />
+          <button onClick={createChannel} disabled={busy || !chTarget.trim()} className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-ink disabled:opacity-50">Add</button>
+        </div>
       </section>
 
       {/* MCP tokens */}

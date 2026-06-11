@@ -84,6 +84,10 @@ export interface CreateAlertRuleInput {
 export interface CreateAlertChannelInput {
   kind: "webhook" | "slack" | "email";
   config: Record<string, unknown>;
+  /** Routing: minimum severity to deliver (default info). */
+  minSeverity?: "info" | "warning" | "critical";
+  /** Routing: only deliver alerts for projects with this tag. */
+  tagFilter?: string | null;
 }
 
 export interface CreateBudgetInput {
@@ -709,6 +713,8 @@ export class ManageService {
         kind: schema.alertChannels.kind,
         config: schema.alertChannels.config,
         enabled: schema.alertChannels.enabled,
+        minSeverity: schema.alertChannels.minSeverity,
+        tagFilter: schema.alertChannels.tagFilter,
       })
       .from(schema.alertChannels)
       .where(eq(schema.alertChannels.organizationId, orgId));
@@ -718,10 +724,18 @@ export class ManageService {
     if (!CHANNEL_KINDS.includes(input.kind)) {
       throw new BadRequestException(`kind must be one of: ${CHANNEL_KINDS.join(", ")}`);
     }
+    const minSeverity = input.minSeverity ?? "info";
+    if (!SEVERITIES.includes(minSeverity)) throw new BadRequestException("invalid minSeverity");
     const orgId = await this.defaultOrgId();
     const [created] = await this.db
       .insert(schema.alertChannels)
-      .values({ organizationId: orgId, kind: input.kind, config: input.config ?? {} })
+      .values({
+        organizationId: orgId,
+        kind: input.kind,
+        config: input.config ?? {},
+        minSeverity,
+        tagFilter: input.tagFilter?.trim() || null,
+      })
       .returning({ id: schema.alertChannels.id });
     if (!created) throw new BadRequestException("failed to create channel");
     return { id: created.id };

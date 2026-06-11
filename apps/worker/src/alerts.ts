@@ -85,7 +85,8 @@ export async function evaluateAlerts(
   // Skip the whole evaluation while a maintenance window is active.
   if (await underMaintenance(db, project.organizationId, projectId, now)) return;
 
-  let channels: AlertChannel[] | null = null;
+  let channels: (AlertChannel & { minSeverity: string; tagFilter: string | null })[] | null = null;
+  let projectTags = new Set<string>();
 
   for (const rule of rules) {
     const metric = metrics.find((m) => m.name === rule.metricName);
@@ -114,28 +115,44 @@ export async function evaluateAlerts(
       firedAt: now,
     };
 
-    // Load the org's enabled channels lazily, once per evaluation.
+    // Load the org's enabled channels + this project's tags lazily, once.
     if (channels === null) {
-      const rows = await db
-        .select({
-          kind: schema.alertChannels.kind,
-          config: schema.alertChannels.config,
-        })
-        .from(schema.alertChannels)
-        .where(
-          and(
-            eq(schema.alertChannels.organizationId, project.organizationId),
-            eq(schema.alertChannels.enabled, true),
+      const [rows, tagRows] = await Promise.all([
+        db
+          .select({
+            kind: schema.alertChannels.kind,
+            config: schema.alertChannels.config,
+            minSeverity: schema.alertChannels.minSeverity,
+            tagFilter: schema.alertChannels.tagFilter,
+          })
+          .from(schema.alertChannels)
+          .where(
+            and(
+              eq(schema.alertChannels.organizationId, project.organizationId),
+              eq(schema.alertChannels.enabled, true),
+            ),
           ),
-        );
+        db
+          .select({ tag: schema.projectTags.tag })
+          .from(schema.projectTags)
+          .where(eq(schema.projectTags.projectId, projectId)),
+      ]);
+      projectTags = new Set(tagRows.map((t) => t.tag));
       channels = rows.map((r) => ({
         kind: r.kind,
         config: (r.config as Record<string, unknown>) ?? {},
+        minSeverity: r.minSeverity,
+        tagFilter: r.tagFilter,
       }));
     }
 
+    const sevRank = (s: string) => (s === "critical" ? 2 : s === "warning" ? 1 : 0);
+
     let delivered = false;
     for (const channel of channels) {
+      // Routing: respect the channel's minimum severity and tag filter.
+      if (sevRank(rule.severity) < sevRank(channel.minSeverity)) continue;
+      if (channel.tagFilter && !projectTags.has(channel.tagFilter)) continue;
       try {
         await deliver(channel, notification);
         delivered = true;

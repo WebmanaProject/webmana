@@ -291,6 +291,10 @@ export const alertChannels = pgTable("alert_channels", {
   /** Channel target config (webhook URL, Slack webhook, email address). */
   config: jsonb("config").notNull().default(sql`'{}'::jsonb`),
   enabled: boolean("enabled").notNull().default(true),
+  /** Routing: only deliver alerts at or above this severity. */
+  minSeverity: severityEnum("min_severity").notNull().default("info"),
+  /** Routing: when set, only deliver alerts for projects carrying this tag. */
+  tagFilter: text("tag_filter"),
   createdAt: createdAt(),
 });
 
