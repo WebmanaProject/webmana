@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRequireAuth, API_BASE as API_URL } from "../lib/auth";
+import { EmptyState, Button, Spinner } from "../components/ui";
 
 type ProjectStatus =
   | "idea"
@@ -197,11 +198,15 @@ export default function ManagePage() {
       )}
 
       {loading ? (
-        <p className="text-text-muted">Loading…</p>
+        <Spinner />
       ) : projects.length === 0 ? (
-        <p className="text-text-muted">No projects yet — create one above.</p>
+        <EmptyState
+          title="No projects yet"
+          description="Create your first project, then assign its domain(s) and connect monitoring."
+          action={<Button onClick={() => setAdding(true)}>+ New project</Button>}
+        />
       ) : visible.length === 0 ? (
-        <p className="text-text-muted">No projects match “{query}”.</p>
+        <EmptyState title="No matches" description={`No projects match “${query}”.`} />
       ) : (
         <ul className="overflow-hidden rounded-2xl border border-border bg-surface shadow-card">
           {visible.map((p, i) => {
