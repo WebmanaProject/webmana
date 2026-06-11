@@ -199,10 +199,17 @@ repo), or **[BOTH]** when it spans the SDK boundary.
 
 Each milestone is independently shippable and demoable (the 1.0 discipline).
 
-### M1 — Design System "Aurora" + App Shell **[APP]**
+### M1 — Design System "Aurora" + App Shell **[APP]** — ✅ shipped
 Component layer, tokens, left-rail shell, command palette, global search,
 notification center, Recharts time-series, onboarding wizard, empty states,
 a11y pass. *No new backend semantics — pure UX uplift + charts.*
+
+Delivered: app shell (left rail + top bar + mobile drawer); Aurora component
+layer (`components/ui.tsx`); command palette (⌘K) with project search; metrics
+history API (`GET /api/metrics/history`) + `TimeSeriesChart` (Recharts) +
+`Sparkline`; onboarding hero on the empty portfolio. Remaining nice-to-haves
+folded into later passes: notification center, kanban sparkline wiring, deeper
+a11y audit.
 
 ### M2 — Portfolio Intelligence + Notes/TODO **[APP]**
 Portfolio Overview home, needs-attention queue, risk register, per-project
