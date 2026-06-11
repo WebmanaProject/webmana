@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useRequireAuth, authFetch } from "../lib/auth";
+import { useRequireAuth, authFetch, API_BASE } from "../lib/auth";
 
 interface CurrencyTotal {
   currency: string;
@@ -111,9 +111,14 @@ export default function FinancePage() {
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
-        <div className="mb-6">
-          <h1 className="text-2xl font-semibold tracking-tight">Finance</h1>
-          <p className="mt-0.5 text-sm text-text-muted">Recurring renewals, cloud spend, and upcoming payments.</p>
+        <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Finance</h1>
+            <p className="mt-0.5 text-sm text-text-muted">Recurring renewals, cloud spend, and upcoming payments.</p>
+          </div>
+          <a href={`${API_BASE}/api/finance/calendar.ics`} className="btn-ghost shrink-0">
+            ↓ Renewal calendar (.ics)
+          </a>
         </div>
 
         {error && <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}

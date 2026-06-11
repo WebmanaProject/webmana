@@ -94,6 +94,55 @@ export class FinanceService {
     map.set(cur, e);
   }
 
+  /** An iCalendar (.ics) feed of domain expiry/renewal dates. */
+  async calendar(): Promise<string> {
+    const rows = await this.db
+      .select({
+        id: schema.domains.id,
+        fqdn: schema.domains.fqdn,
+        expiresAt: schema.domains.expiresAt,
+        autoRenew: schema.domains.autoRenew,
+        renewalCost: schema.domains.renewalCost,
+        costCurrency: schema.domains.costCurrency,
+      })
+      .from(schema.domains);
+
+    const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+    const fold = (s: string) => s.replace(/([,;\\])/g, "\\$1").replace(/\n/g, "\\n");
+    const lines: string[] = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//Webmana//Renewals//EN",
+      "CALSCALE:GREGORIAN",
+      "METHOD:PUBLISH",
+      "X-WR-CALNAME:Webmana domain renewals",
+    ];
+
+    for (const d of rows) {
+      if (!d.expiresAt) continue;
+      const date = d.expiresAt.replace(/-/g, ""); // YYYY-MM-DD -> YYYYMMDD
+      // All-day event; DTEND is exclusive (next day).
+      const next = new Date(`${d.expiresAt}T00:00:00Z`);
+      next.setUTCDate(next.getUTCDate() + 1);
+      const dtEnd = next.toISOString().slice(0, 10).replace(/-/g, "");
+      const cost = d.renewalCost != null ? ` — ${d.renewalCost} ${d.costCurrency ?? ""}/yr` : "";
+      const auto = d.autoRenew ? " (auto-renew on)" : "";
+      lines.push(
+        "BEGIN:VEVENT",
+        `UID:domain-${d.id}@webmana`,
+        `DTSTAMP:${stamp}`,
+        `DTSTART;VALUE=DATE:${date}`,
+        `DTEND;VALUE=DATE:${dtEnd}`,
+        fold(`SUMMARY:Domain renewal: ${d.fqdn}`),
+        fold(`DESCRIPTION:${d.fqdn} expires${cost}${auto}`),
+        "END:VEVENT",
+      );
+    }
+
+    lines.push("END:VCALENDAR");
+    return `${lines.join("\r\n")}\r\n`;
+  }
+
   async report(): Promise<FinanceReport> {
     const now = Date.now();
     const annual = new Map<string, CurrencyTotal>();
