@@ -17,6 +17,8 @@ interface StatusPage {
 }
 
 const API_URL = process.env.API_URL ?? "http://localhost:4000";
+/** Browser-reachable API base for the public RSS link. */
+const PUBLIC_API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
 
 async function getStatus(): Promise<StatusPage | null> {
   try {
@@ -86,6 +88,8 @@ export default async function StatusPageView() {
         </p>
         <p className="mt-1 text-sm text-text-muted">
           Updated {new Date(status.generatedAt).toLocaleString()}
+          {" · "}
+          <a href={`${PUBLIC_API}/status/rss`} className="text-accent-strong hover:underline">RSS</a>
         </p>
       </header>
 

@@ -25,8 +25,12 @@ export interface PublicProjectStatus {
   incidents: PublicIncident[];
 }
 
+export type OverallStatus = "operational" | "degraded" | "down";
+
 export interface StatusPage {
   generatedAt: string;
+  /** Worst health across all projects, for the headline banner. */
+  overall: OverallStatus;
   projects: PublicProjectStatus[];
 }
 
@@ -53,7 +57,7 @@ export class StatusService {
       .orderBy(schema.projects.name);
 
     const ids = projectRows.map((p) => p.id);
-    if (ids.length === 0) return { generatedAt, projects: [] };
+    if (ids.length === 0) return { generatedAt, overall: "operational", projects: [] };
 
     const incidentCutoff = new Date(now - INCIDENT_WINDOW_MS);
 
@@ -116,6 +120,48 @@ export class StatusService {
       return { name: project.name, domain: project.domain, health, incidents };
     });
 
-    return { generatedAt, projects };
+    const overall: OverallStatus = projects.some((p) => p.health === "down")
+      ? "down"
+      : projects.some((p) => p.health === "degraded")
+        ? "degraded"
+        : "operational";
+
+    return { generatedAt, overall, projects };
+  }
+
+  /** Public RSS feed of recent incidents across all projects. */
+  async getRssFeed(origin: string): Promise<string> {
+    const page = await this.getStatusPage();
+    const esc = (s: string) =>
+      s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+    const items = page.projects
+      .flatMap((p) =>
+        p.incidents.map((i) => ({
+          title: `[${p.name}] ${i.title}`,
+          severity: i.severity,
+          occurredAt: i.occurredAt,
+        })),
+      )
+      .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))
+      .slice(0, 50)
+      .map(
+        (i) =>
+          `    <item><title>${esc(i.title)}</title>` +
+          `<description>${esc(i.severity)}</description>` +
+          `<pubDate>${new Date(i.occurredAt).toUTCString()}</pubDate>` +
+          `<guid isPermaLink="false">${esc(i.title)}-${i.occurredAt}</guid></item>`,
+      )
+      .join("\n");
+
+    return (
+      `<?xml version="1.0" encoding="UTF-8"?>\n` +
+      `<rss version="2.0"><channel>\n` +
+      `    <title>Webmana status</title>\n` +
+      `    <link>${esc(origin)}/status</link>\n` +
+      `    <description>Recent incidents — overall: ${page.overall}</description>\n` +
+      `${items}\n` +
+      `</channel></rss>\n`
+    );
   }
 }
