@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRequireAuth, API_BASE as API_URL } from "../lib/auth";
+import { StatTile, Badge } from "../components/ui";
 
 type ProjectStatus =
   | "idea"
@@ -204,6 +205,8 @@ export default function DashboardPage() {
         )}
       </div>
 
+      {!error && !loading && projects.length > 0 && <PortfolioOverview projects={projects} />}
+
       {error ? (
         <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-700">
           Could not reach the API at <code>{API_URL}</code>. Is the stack running? ({error})
@@ -281,6 +284,121 @@ export default function DashboardPage() {
         />
       )}
     </main>
+  );
+}
+
+/* ------------------------------------------------------ Portfolio Overview - */
+
+interface CurrencyTotal {
+  currency: string;
+  total: number;
+}
+interface UpcomingRenewal {
+  domainId: string;
+  fqdn: string;
+  daysUntil: number;
+  autoRenew: boolean;
+}
+interface FinanceLite {
+  annualByCurrency: CurrencyTotal[];
+  cloudByCurrency: CurrencyTotal[];
+  upcomingRenewals: UpcomingRenewal[];
+}
+
+interface Risk {
+  id: string;
+  severity: "critical" | "warning";
+  label: string;
+  href: string;
+}
+
+const fmtMoney = (totals: CurrencyTotal[]) =>
+  totals.length === 0
+    ? "—"
+    : totals.map((c) => `${c.total.toLocaleString(undefined, { maximumFractionDigits: 0 })} ${c.currency}`).join(" + ");
+
+/** Portfolio-level intelligence band: health, spend, and a risk queue. */
+function PortfolioOverview({ projects }: { projects: ProjectSummary[] }) {
+  const [finance, setFinance] = useState<FinanceLite | null>(null);
+
+  useEffect(() => {
+    fetch(`${API_URL}/api/finance`, { cache: "no-store", credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setFinance(d as FinanceLite | null))
+      .catch(() => setFinance(null));
+  }, []);
+
+  const live = projects.filter((p) => p.status === "live" || p.status === "rebuild");
+  const counts = { healthy: 0, degraded: 0, down: 0, unknown: 0 };
+  for (const p of live) counts[p.health] += 1;
+
+  // Roll up risks from project + finance signals.
+  const risks: Risk[] = [];
+  for (const p of projects) {
+    if (p.health === "down") risks.push({ id: `down-${p.id}`, severity: "critical", label: `${p.name} is down`, href: `/projects/${p.id}` });
+    else if (p.health === "degraded") risks.push({ id: `deg-${p.id}`, severity: "warning", label: `${p.name} is degraded`, href: `/projects/${p.id}` });
+    const ssl = p.metrics.find((m) => m.name === "ssl.days_until_expiry");
+    if (ssl && ssl.value <= 14) {
+      risks.push({
+        id: `ssl-${p.id}`,
+        severity: ssl.value <= 3 ? "critical" : "warning",
+        label: `${p.name}: SSL expires in ${ssl.value}d`,
+        href: `/projects/${p.id}`,
+      });
+    }
+    if ((p.status === "live" || p.status === "rebuild") && p.connectors.length === 0) {
+      risks.push({ id: `mon-${p.id}`, severity: "warning", label: `${p.name} is live but not monitored`, href: `/projects/${p.id}` });
+    }
+  }
+  for (const r of finance?.upcomingRenewals ?? []) {
+    if (r.daysUntil <= 30 && !r.autoRenew) {
+      risks.push({
+        id: `dom-${r.domainId}`,
+        severity: r.daysUntil <= 7 ? "critical" : "warning",
+        label: `${r.fqdn} renews in ${r.daysUntil}d (no auto-renew)`,
+        href: "/finance",
+      });
+    }
+  }
+  risks.sort((a, b) => (a.severity === b.severity ? 0 : a.severity === "critical" ? -1 : 1));
+
+  return (
+    <div className="mb-6 grid gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-2 gap-4 lg:col-span-2">
+        <StatTile label="Projects" value={projects.length} hint={`${live.length} live`} />
+        <StatTile
+          label="Live health"
+          value={`${counts.healthy}/${live.length || 0}`}
+          hint={`${counts.degraded} degraded · ${counts.down} down`}
+          trend={counts.down > 0 ? "down" : counts.degraded > 0 ? "flat" : "up"}
+        />
+        <StatTile label="Annual renewals" value={fmtMoney(finance?.annualByCurrency ?? [])} hint="domains, per year" />
+        <StatTile label="Cloud (MTD)" value={fmtMoney(finance?.cloudByCurrency ?? [])} hint="month-to-date" />
+      </div>
+
+      <section className="card p-5">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold">Needs attention</h2>
+          {risks.length > 0 && <Badge tone={risks.some((r) => r.severity === "critical") ? "red" : "amber"}>{risks.length}</Badge>}
+        </div>
+        {risks.length === 0 ? (
+          <p className="flex items-center gap-2 text-sm text-text-muted">
+            <span className="h-2 w-2 rounded-full bg-accent" /> All clear — nothing needs attention.
+          </p>
+        ) : (
+          <ul className="flex max-h-44 flex-col gap-1.5 overflow-y-auto">
+            {risks.slice(0, 12).map((r) => (
+              <li key={r.id}>
+                <a href={r.href} className="flex items-start gap-2 rounded-lg px-1 py-1 text-sm hover:bg-bg-subtle">
+                  <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${r.severity === "critical" ? "bg-red-500" : "bg-amber-400"}`} />
+                  <span className="flex-1">{r.label}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
   );
 }
 
