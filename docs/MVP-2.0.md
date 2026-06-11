@@ -224,11 +224,10 @@ Deferred: weekly AI digest email (folded into M4 once SMTP invites land).
 FX normalization, budgets/forecasts, profitability table, Stripe revenue
 connector, renewal calendar export.
 
-Delivered: Stripe revenue connector (`revenue.mrr` + `revenue.active_subscriptions`,
-in both repos); Finance shows MRR + a per-project profitability table (annual
-revenue vs cost → margin) and MRR on the Portfolio Overview; **budgets** (scope
-project/tag/org) with annualized target-vs-actual progress + overspend colour.
-Remaining: FX normalization (multi-currency), renewal calendar (iCal) export.
+Delivered: Stripe revenue connector; Finance MRR + per-project profitability +
+MRR on the Overview; **budgets** (project/tag/org) with overspend colour;
+**iCal renewal calendar** export; **multi-currency FX normalization** (manual
+base currency + rates → base-currency net banner).
 
 ### M4 — Incidents + Alerting 2.0 + SMTP invites **[APP]** — ✅ shipped (core)
 Incident lifecycle, routing/escalation, maintenance windows, status page 2.0,
@@ -239,8 +238,10 @@ Delivered: incident lifecycle (`incidents` table, open/acknowledged/resolved +
 (worker alert suppression while active + UI); **alert routing** (per-channel min
 severity + tag filter, enforced in the worker, with a Settings channel manager);
 **SMTP invitation emails** (graceful link fallback); **status page 2.0** (overall
-status headline + public RSS feed). Deferred: time-based escalation (after N min
-unacked), status-page subscribers/custom domain, weekly AI digest (carried from M2).
+status headline + public RSS feed); **time-based escalation** (open+unacked
+incidents past a threshold are escalated once); **weekly portfolio digest**
+(carried from M2). Deferred: status-page subscribers/custom domain, AI-written
+digest copy (the digest ships as a plain summary; AI flavour is optional later).
 
 ### M5 — SDK v2 + Actions framework **[BOTH]**
 Capabilities/actions/OAuth in the SDK; audit log + action UI in the app; a safe
