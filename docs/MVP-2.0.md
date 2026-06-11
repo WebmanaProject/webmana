@@ -230,16 +230,17 @@ revenue vs cost → margin) and MRR on the Portfolio Overview; **budgets** (scop
 project/tag/org) with annualized target-vs-actual progress + overspend colour.
 Remaining: FX normalization (multi-currency), renewal calendar (iCal) export.
 
-### M4 — Incidents + Alerting 2.0 + SMTP invites **[APP]** — 🟡 in progress
+### M4 — Incidents + Alerting 2.0 + SMTP invites **[APP]** — ✅ shipped (core)
 Incident lifecycle, routing/escalation, maintenance windows, status page 2.0,
 invitation emails.
 
 Delivered: incident lifecycle (`incidents` table, open/acknowledged/resolved +
 `/incidents` page, feeding the Overview risk queue); **maintenance windows**
-(`maintenance_windows` table + worker alert suppression while active + UI);
-**SMTP invitation emails** (API mailer, emails the accept link when SMTP is set,
-graceful link fallback otherwise). Remaining: alert routing/escalation, status
-page 2.0, weekly AI digest (carried from M2).
+(worker alert suppression while active + UI); **alert routing** (per-channel min
+severity + tag filter, enforced in the worker, with a Settings channel manager);
+**SMTP invitation emails** (graceful link fallback); **status page 2.0** (overall
+status headline + public RSS feed). Deferred: time-based escalation (after N min
+unacked), status-page subscribers/custom domain, weekly AI digest (carried from M2).
 
 ### M5 — SDK v2 + Actions framework **[BOTH]**
 Capabilities/actions/OAuth in the SDK; audit log + action UI in the app; a safe
