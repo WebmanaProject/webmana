@@ -36,6 +36,7 @@ export default function SettingsPage() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("viewer");
   const [inviteToken, setInviteToken] = useState<string | null>(null);
+  const [inviteEmailed, setInviteEmailed] = useState(false);
   const [tokenName, setTokenName] = useState("");
   const [tokenRole, setTokenRole] = useState("viewer");
   const [newToken, setNewToken] = useState<string | null>(null);
@@ -80,8 +81,9 @@ export default function SettingsPage() {
         body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
       });
       if (!res.ok) throw new Error(`invite failed (${res.status})`);
-      const body = (await res.json()) as { token: string };
+      const body = (await res.json()) as { token: string; emailed?: boolean };
       setInviteToken(body.token);
+      setInviteEmailed(Boolean(body.emailed));
       setInviteEmail("");
     });
 
@@ -164,7 +166,9 @@ export default function SettingsPage() {
         </div>
         {inviteLink && (
           <div className="mt-3 rounded-lg border border-accent/40 bg-accent/5 p-3 text-xs">
-            <p className="mb-1 font-medium text-accent-strong">Invite link (share once):</p>
+            <p className="mb-1 font-medium text-accent-strong">
+              {inviteEmailed ? "✓ Invitation emailed — link (also valid):" : "Invite link (share once):"}
+            </p>
             <code className="break-all">{inviteLink}</code>
           </div>
         )}

@@ -9,6 +9,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { schema, type Database } from "@webmana/db";
 import { hashPassword } from "../auth/crypto.js";
 import { DATABASE } from "../db/db.module.js";
+import { sendInviteEmail } from "../mail/mailer.js";
 
 type Role = "admin" | "editor" | "viewer";
 const ROLES: Role[] = ["admin", "editor", "viewer"];
@@ -61,8 +62,11 @@ export class OrgService {
     if (updated.length === 0) throw new NotFoundException("member not found");
   }
 
-  /** Create an invitation; returns the plaintext token (shown once). */
-  async invite(email: string, role: string): Promise<{ token: string; email: string }> {
+  /**
+   * Create an invitation. Emails the link when SMTP is configured; always
+   * returns the plaintext token (shown once) so the link still works without mail.
+   */
+  async invite(email: string, role: string): Promise<{ token: string; email: string; emailed: boolean }> {
     const normalized = email?.trim().toLowerCase();
     if (!normalized) throw new BadRequestException("email is required");
     if (!ROLES.includes(role as Role)) throw new BadRequestException("invalid role");
@@ -76,7 +80,17 @@ export class OrgService {
       tokenHash: sha256(token),
       expiresAt: new Date(Date.now() + INVITE_TTL_MS),
     });
-    return { token, email: normalized };
+
+    const origin = process.env.WEB_ORIGIN ?? "http://localhost:3000";
+    const link = `${origin}/invite?token=${token}`;
+    let emailed = false;
+    try {
+      emailed = await sendInviteEmail(normalized, link, role);
+    } catch (err) {
+      // Mail failure must not block invite creation — the link still works.
+      console.error("[org] invite email failed:", err instanceof Error ? err.message : String(err));
+    }
+    return { token, email: normalized, emailed };
   }
 
   /** Pending (unaccepted, unexpired) invitations. */
