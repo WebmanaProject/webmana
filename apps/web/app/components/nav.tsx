@@ -34,6 +34,17 @@ export const NAV_ITEMS: NavItem[] = [
     ),
   },
   {
+    href: "/incidents",
+    label: "Incidents",
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-5 w-5" {...s}>
+        <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+        <line x1="12" y1="9" x2="12" y2="13" />
+        <line x1="12" y1="17" x2="12.01" y2="17" />
+      </svg>
+    ),
+  },
+  {
     href: "/manage",
     label: "Manage",
     icon: (

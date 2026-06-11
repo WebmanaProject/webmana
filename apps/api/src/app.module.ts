@@ -12,6 +12,7 @@ import { OrgModule } from "./org/org.module.js";
 import { DomainsModule } from "./domains/domains.module.js";
 import { FinanceModule } from "./finance/finance.module.js";
 import { MetricsModule } from "./metrics/metrics.module.js";
+import { IncidentsModule } from "./incidents/incidents.module.js";
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { MetricsModule } from "./metrics/metrics.module.js";
     DomainsModule,
     FinanceModule,
     MetricsModule,
+    IncidentsModule,
   ],
   controllers: [HealthController],
 })

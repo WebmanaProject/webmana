@@ -318,23 +318,44 @@ const fmtMoney = (totals: CurrencyTotal[]) =>
     ? "—"
     : totals.map((c) => `${c.total.toLocaleString(undefined, { maximumFractionDigits: 0 })} ${c.currency}`).join(" + ");
 
+interface ActiveIncident {
+  id: string;
+  title: string;
+  severity: "info" | "warning" | "critical";
+  status: "open" | "acknowledged" | "resolved";
+}
+
 /** Portfolio-level intelligence band: health, spend, and a risk queue. */
 function PortfolioOverview({ projects }: { projects: ProjectSummary[] }) {
   const [finance, setFinance] = useState<FinanceLite | null>(null);
+  const [incidents, setIncidents] = useState<ActiveIncident[]>([]);
 
   useEffect(() => {
     fetch(`${API_URL}/api/finance`, { cache: "no-store", credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => setFinance(d as FinanceLite | null))
       .catch(() => setFinance(null));
+    fetch(`${API_URL}/api/incidents`, { cache: "no-store", credentials: "include" })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => setIncidents(Array.isArray(d) ? (d as ActiveIncident[]) : []))
+      .catch(() => setIncidents([]));
   }, []);
 
   const live = projects.filter((p) => p.status === "live" || p.status === "rebuild");
   const counts = { healthy: 0, degraded: 0, down: 0, unknown: 0 };
   for (const p of live) counts[p.health] += 1;
 
-  // Roll up risks from project + finance signals.
+  // Roll up risks from project + finance + incident signals.
   const risks: Risk[] = [];
+  for (const inc of incidents) {
+    if (inc.status === "resolved") continue;
+    risks.push({
+      id: `inc-${inc.id}`,
+      severity: inc.severity === "critical" ? "critical" : "warning",
+      label: `Incident: ${inc.title} (${inc.status})`,
+      href: "/incidents",
+    });
+  }
   for (const p of projects) {
     if (p.health === "down") risks.push({ id: `down-${p.id}`, severity: "critical", label: `${p.name} is down`, href: `/projects/${p.id}` });
     else if (p.health === "degraded") risks.push({ id: `deg-${p.id}`, severity: "warning", label: `${p.name} is degraded`, href: `/projects/${p.id}` });

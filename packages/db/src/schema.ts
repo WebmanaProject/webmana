@@ -38,6 +38,11 @@ export const alertChannelKindEnum = pgEnum("alert_channel_kind", [
 ]);
 export const budgetScopeEnum = pgEnum("budget_scope", ["project", "tag", "org"]);
 export const budgetPeriodEnum = pgEnum("budget_period", ["monthly", "annual"]);
+export const incidentStatusEnum = pgEnum("incident_status", [
+  "open",
+  "acknowledged",
+  "resolved",
+]);
 
 /* ----------------------------------------------------------------- RBAC ---- */
 
@@ -344,6 +349,29 @@ export const budgets = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [index("budgets_org_idx").on(t.organizationId)],
+);
+
+/* ------------------------------------------------------------ Incidents ---- */
+/** A tracked incident with an ack/resolve lifecycle (org- or project-scoped). */
+export const incidents = pgTable(
+  "incidents",
+  {
+    id: id(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    /** Optional project this incident relates to; null for org-wide. */
+    projectId: uuid("project_id").references(() => projects.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    description: text("description"),
+    severity: severityEnum("severity").notNull().default("warning"),
+    status: incidentStatusEnum("status").notNull().default("open"),
+    acknowledgedAt: timestamp("acknowledged_at", { withTimezone: true }),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("incidents_org_status_idx").on(t.organizationId, t.status, t.createdAt)],
 );
 
 /* --------------------------------------------------------- Invitations ----- */
