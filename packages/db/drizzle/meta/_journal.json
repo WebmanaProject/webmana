@@ -71,6 +71,13 @@
       "when": 1781183309614,
       "tag": "0009_lazy_matthew_murdock",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1781187658633,
+      "tag": "0010_secret_squadron_sinister",
+      "breakpoints": true
     }
   ]
 }

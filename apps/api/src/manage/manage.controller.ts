@@ -21,6 +21,7 @@ import {
   type UpdateNoteInput,
   type CreateBudgetInput,
   type UpdateBudgetInput,
+  type CreateMaintenanceInput,
 } from "./manage.service.js";
 import { AuthGuard } from "../auth/auth.guard.js";
 import { RolesGuard, Roles } from "../auth/roles.guard.js";
@@ -208,5 +209,25 @@ export class ManageController {
   @HttpCode(200)
   deleteBudget(@Param("id") id: string) {
     return this.manage.deleteBudget(id).then(() => ({ ok: true }));
+  }
+
+  /* -------------------------------------------------- Maintenance windows --- */
+
+  @Get("maintenance")
+  listMaintenance() {
+    return this.manage.listMaintenanceWindows();
+  }
+
+  @Post("maintenance")
+  @Roles("editor")
+  createMaintenance(@Body() body: CreateMaintenanceInput) {
+    return this.manage.createMaintenanceWindow(body);
+  }
+
+  @Delete("maintenance/:id")
+  @Roles("editor")
+  @HttpCode(200)
+  deleteMaintenance(@Param("id") id: string) {
+    return this.manage.deleteMaintenanceWindow(id).then(() => ({ ok: true }));
   }
 }

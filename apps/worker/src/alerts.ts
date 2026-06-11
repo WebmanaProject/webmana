@@ -1,7 +1,36 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull, lte, gte, or } from "drizzle-orm";
 import { schema, type Database } from "@webmana/db";
 import type { NormalizedMetric } from "@webmana/contracts";
 import { deliver, type AlertChannel, type AlertNotification } from "./channels.js";
+
+/**
+ * True if an active maintenance window currently covers this project (a
+ * project-specific window or an org-wide one). Alerts are suppressed while a
+ * window is active.
+ */
+async function underMaintenance(
+  db: Database,
+  organizationId: string,
+  projectId: string,
+  now: Date,
+): Promise<boolean> {
+  const [row] = await db
+    .select({ id: schema.maintenanceWindows.id })
+    .from(schema.maintenanceWindows)
+    .where(
+      and(
+        eq(schema.maintenanceWindows.organizationId, organizationId),
+        or(
+          isNull(schema.maintenanceWindows.projectId),
+          eq(schema.maintenanceWindows.projectId, projectId),
+        ),
+        lte(schema.maintenanceWindows.startsAt, now),
+        gte(schema.maintenanceWindows.endsAt, now),
+      ),
+    )
+    .limit(1);
+  return !!row;
+}
 
 function breached(operator: string, value: number, threshold: number): boolean {
   switch (operator) {
@@ -52,6 +81,9 @@ export async function evaluateAlerts(
     .where(eq(schema.projects.id, projectId))
     .limit(1);
   if (!project) return;
+
+  // Skip the whole evaluation while a maintenance window is active.
+  if (await underMaintenance(db, project.organizationId, projectId, now)) return;
 
   let channels: AlertChannel[] | null = null;
 

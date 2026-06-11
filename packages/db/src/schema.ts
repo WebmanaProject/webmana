@@ -374,6 +374,24 @@ export const incidents = pgTable(
   (t) => [index("incidents_org_status_idx").on(t.organizationId, t.status, t.createdAt)],
 );
 
+/** A planned maintenance window that suppresses alerts while active. */
+export const maintenanceWindows = pgTable(
+  "maintenance_windows",
+  {
+    id: id(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    /** Target project; null suppresses alerts org-wide. */
+    projectId: uuid("project_id").references(() => projects.id, { onDelete: "cascade" }),
+    reason: text("reason"),
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+    endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("maintenance_org_idx").on(t.organizationId, t.startsAt)],
+);
+
 /* --------------------------------------------------------- Invitations ----- */
 /** Pending invitations to join an organization with a given role. */
 export const invitations = pgTable(

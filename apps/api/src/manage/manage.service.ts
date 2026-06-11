@@ -101,6 +101,15 @@ export interface UpdateBudgetInput {
   currency?: string;
 }
 
+export interface CreateMaintenanceInput {
+  /** Target project; omit/null suppresses alerts org-wide. */
+  projectId?: string | null;
+  reason?: string | null;
+  /** ISO datetimes. */
+  startsAt: string;
+  endsAt: string;
+}
+
 const OPERATORS = ["lt", "lte", "gt", "gte", "eq"];
 const SEVERITIES = ["info", "warning", "critical"];
 const CHANNEL_KINDS = ["webhook", "slack", "email"];
@@ -806,5 +815,60 @@ export class ManageService {
       .where(and(eq(schema.budgets.id, id), eq(schema.budgets.organizationId, orgId)))
       .returning({ id: schema.budgets.id });
     if (deleted.length === 0) throw new NotFoundException("budget not found");
+  }
+
+  /* -------------------------------------------------- Maintenance windows --- */
+
+  async listMaintenanceWindows() {
+    const orgId = await this.defaultOrgId();
+    const rows = await this.db
+      .select({
+        id: schema.maintenanceWindows.id,
+        projectId: schema.maintenanceWindows.projectId,
+        projectName: schema.projects.name,
+        reason: schema.maintenanceWindows.reason,
+        startsAt: schema.maintenanceWindows.startsAt,
+        endsAt: schema.maintenanceWindows.endsAt,
+      })
+      .from(schema.maintenanceWindows)
+      .leftJoin(schema.projects, eq(schema.maintenanceWindows.projectId, schema.projects.id))
+      .where(eq(schema.maintenanceWindows.organizationId, orgId))
+      .orderBy(schema.maintenanceWindows.startsAt);
+    return rows.map((r) => ({
+      ...r,
+      startsAt: r.startsAt.toISOString(),
+      endsAt: r.endsAt.toISOString(),
+    }));
+  }
+
+  async createMaintenanceWindow(input: CreateMaintenanceInput): Promise<{ id: string }> {
+    const startsAt = new Date(input.startsAt);
+    const endsAt = new Date(input.endsAt);
+    if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) {
+      throw new BadRequestException("startsAt and endsAt must be valid datetimes");
+    }
+    if (endsAt <= startsAt) throw new BadRequestException("endsAt must be after startsAt");
+    const orgId = await this.defaultOrgId();
+    const [created] = await this.db
+      .insert(schema.maintenanceWindows)
+      .values({
+        organizationId: orgId,
+        projectId: input.projectId?.trim() || null,
+        reason: input.reason?.trim() || null,
+        startsAt,
+        endsAt,
+      })
+      .returning({ id: schema.maintenanceWindows.id });
+    if (!created) throw new BadRequestException("failed to create maintenance window");
+    return { id: created.id };
+  }
+
+  async deleteMaintenanceWindow(id: string): Promise<void> {
+    const orgId = await this.defaultOrgId();
+    const deleted = await this.db
+      .delete(schema.maintenanceWindows)
+      .where(and(eq(schema.maintenanceWindows.id, id), eq(schema.maintenanceWindows.organizationId, orgId)))
+      .returning({ id: schema.maintenanceWindows.id });
+    if (deleted.length === 0) throw new NotFoundException("maintenance window not found");
   }
 }

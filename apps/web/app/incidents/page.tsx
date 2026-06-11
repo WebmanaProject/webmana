@@ -25,6 +25,15 @@ interface ProjectLite {
   name: string;
 }
 
+interface MaintWindow {
+  id: string;
+  projectId: string | null;
+  projectName: string | null;
+  reason: string | null;
+  startsAt: string;
+  endsAt: string;
+}
+
 const SEV_TONE: Record<Severity, "red" | "amber" | "neutral"> = {
   critical: "red",
   warning: "amber",
@@ -65,6 +74,7 @@ export default function IncidentsPage() {
   useRequireAuth();
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [projects, setProjects] = useState<ProjectLite[]>([]);
+  const [maintenance, setMaintenance] = useState<MaintWindow[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -79,12 +89,14 @@ export default function IncidentsPage() {
   const reload = useCallback(async () => {
     setError(null);
     try {
-      const [inc, projs] = await Promise.all([
+      const [inc, projs, maint] = await Promise.all([
         api("/incidents") as Promise<Incident[]>,
         api("/projects").catch(() => []) as Promise<{ id: string; name: string }[]>,
+        api("/manage/maintenance").catch(() => []) as Promise<MaintWindow[]>,
       ]);
       setIncidents(inc);
       setProjects(Array.isArray(projs) ? projs.map((p) => ({ id: p.id, name: p.name })) : []);
+      setMaintenance(Array.isArray(maint) ? maint : []);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -241,6 +253,103 @@ export default function IncidentsPage() {
           ))}
         </ul>
       )}
+
+      <MaintenanceSection windows={maintenance} projects={projects} busy={busy} run={run} />
     </main>
+  );
+}
+
+/* --------------------------------------------------- Maintenance windows --- */
+
+function MaintenanceSection({
+  windows,
+  projects,
+  busy,
+  run,
+}: {
+  windows: MaintWindow[];
+  projects: ProjectLite[];
+  busy: boolean;
+  run: (fn: () => Promise<unknown>) => Promise<void>;
+}) {
+  const [projectId, setProjectId] = useState("");
+  const [reason, setReason] = useState("");
+  const [startsAt, setStartsAt] = useState("");
+  const [endsAt, setEndsAt] = useState("");
+
+  const now = Date.now();
+  const add = () =>
+    run(async () => {
+      await api("/manage/maintenance", {
+        method: "POST",
+        body: JSON.stringify({
+          projectId: projectId || null,
+          reason: reason.trim() || null,
+          startsAt: new Date(startsAt).toISOString(),
+          endsAt: new Date(endsAt).toISOString(),
+        }),
+      });
+      setProjectId("");
+      setReason("");
+      setStartsAt("");
+      setEndsAt("");
+    });
+
+  return (
+    <section className="mt-10">
+      <h2 className="mb-1 text-base font-semibold">Maintenance windows</h2>
+      <p className="mb-3 text-sm text-text-muted">Alerts are suppressed for the target while a window is active.</p>
+
+      {windows.length > 0 && (
+        <ul className="mb-4 flex flex-col gap-2">
+          {windows.map((w) => {
+            const active = new Date(w.startsAt).getTime() <= now && new Date(w.endsAt).getTime() >= now;
+            return (
+              <li key={w.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-bg-subtle px-3 py-2 text-sm">
+                <span className="flex flex-wrap items-center gap-2">
+                  {active && <Badge tone="amber">active</Badge>}
+                  <span className="font-medium">{w.projectName ?? "Org-wide"}</span>
+                  {w.reason && <span className="text-text-muted">· {w.reason}</span>}
+                  <span className="text-xs text-text-muted">
+                    {new Date(w.startsAt).toLocaleString()} → {new Date(w.endsAt).toLocaleString()}
+                  </span>
+                </span>
+                <button
+                  onClick={() => run(() => api(`/manage/maintenance/${w.id}`, { method: "DELETE" }))}
+                  disabled={busy}
+                  className="rounded px-1.5 text-xs text-text-muted hover:text-red-600 disabled:opacity-50"
+                  aria-label="Delete window"
+                >
+                  ✕
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      <div className="flex flex-wrap items-end gap-2 rounded-2xl border border-dashed border-border p-3">
+        <label className="text-xs font-medium text-text-muted">
+          Target
+          <select className="input mt-1 block" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+            <option value="">Org-wide</option>
+            {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+        </label>
+        <label className="text-xs font-medium text-text-muted">
+          From
+          <input className="input mt-1 block" type="datetime-local" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} />
+        </label>
+        <label className="text-xs font-medium text-text-muted">
+          To
+          <input className="input mt-1 block" type="datetime-local" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} />
+        </label>
+        <label className="text-xs font-medium text-text-muted">
+          Reason
+          <input className="input mt-1 block" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Deploy" />
+        </label>
+        <Button onClick={add} disabled={busy || !startsAt || !endsAt}>Schedule</Button>
+      </div>
+    </section>
   );
 }
