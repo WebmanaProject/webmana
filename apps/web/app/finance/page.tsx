@@ -25,11 +25,21 @@ interface UpcomingRenewal {
   renewalCost: number | null;
   currency: string | null;
 }
+interface ProjectProfit {
+  projectId: string;
+  name: string;
+  currency: string;
+  annualRevenue: number;
+  annualCost: number;
+  margin: number;
+}
 interface FinanceReport {
   generatedAt: string;
   annualByCurrency: CurrencyTotal[];
   cloudByCurrency: CurrencyTotal[];
+  mrrByCurrency: CurrencyTotal[];
   upcomingRenewals: UpcomingRenewal[];
+  profitability: ProjectProfit[];
   lines: CostLine[];
 }
 
@@ -91,7 +101,23 @@ export default function FinancePage() {
         ) : (
           <>
             {/* Summary cards */}
-            <div className="mb-8 grid gap-4 sm:grid-cols-2">
+            <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="card p-5">
+                <div className="text-xs font-medium uppercase tracking-wide text-text-muted">MRR (revenue)</div>
+                {report.mrrByCurrency.length === 0 ? (
+                  <p className="mt-2 text-sm text-text-muted">No revenue connector yet.</p>
+                ) : (
+                  <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+                    {report.mrrByCurrency.map((c) => (
+                      <span key={c.currency} className="text-2xl font-semibold tabular-nums text-accent-strong">
+                        {fmt(c.total)} <span className="text-sm font-normal text-text-muted">{c.currency}</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <p className="mt-1 text-xs text-text-muted">monthly recurring, from Stripe</p>
+              </div>
+
               <div className="card p-5">
                 <div className="text-xs font-medium uppercase tracking-wide text-text-muted">Annual renewals</div>
                 {report.annualByCurrency.length === 0 ? (
@@ -124,6 +150,47 @@ export default function FinancePage() {
                 <p className="mt-1 text-xs text-text-muted">latest AWS Cost Explorer reading</p>
               </div>
             </div>
+
+            {/* Profitability */}
+            {report.profitability.length > 0 && (
+              <section className="mb-8">
+                <h2 className="mb-3 text-base font-semibold">Profitability (annualized)</h2>
+                <div className="overflow-x-auto rounded-2xl border border-border shadow-card">
+                  <table className="w-full min-w-[34rem] text-sm">
+                    <thead className="bg-bg-subtle text-left text-xs uppercase tracking-wide text-text-muted">
+                      <tr>
+                        <th className="px-4 py-2.5">Project</th>
+                        <th className="px-4 py-2.5 text-right">Revenue / yr</th>
+                        <th className="px-4 py-2.5 text-right">Cost / yr</th>
+                        <th className="px-4 py-2.5 text-right">Margin / yr</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {report.profitability.map((p) => (
+                        <tr key={p.projectId} className="border-t border-border">
+                          <td className="px-4 py-2.5">
+                            <a href={`/projects/${p.projectId}`} className="hover:text-accent-strong">{p.name}</a>
+                          </td>
+                          <td className="px-4 py-2.5 text-right tabular-nums">
+                            {p.annualRevenue > 0 ? `${fmt(p.annualRevenue)} ${p.currency}` : <span className="text-text-muted">—</span>}
+                          </td>
+                          <td className="px-4 py-2.5 text-right tabular-nums">
+                            {p.annualCost > 0 ? `${fmt(p.annualCost)} ${p.currency}` : <span className="text-text-muted">—</span>}
+                          </td>
+                          <td className={`px-4 py-2.5 text-right font-medium tabular-nums ${p.margin >= 0 ? "text-accent-strong" : "text-red-600"}`}>
+                            {p.margin >= 0 ? "+" : ""}{fmt(p.margin)} {p.currency}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="mt-2 text-xs text-text-muted">
+                  Revenue = MRR × 12. Cost = domain renewals + annualized cloud run-rate. Mixed currencies are
+                  not yet FX-normalized.
+                </p>
+              </section>
+            )}
 
             {/* Upcoming renewals */}
             <section className="mb-8">
