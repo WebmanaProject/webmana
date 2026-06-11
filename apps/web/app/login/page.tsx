@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Logo } from "../components/Header";
+import { Logo } from "../components/Logo";
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/?$/, "") ?? "http://localhost:4000";
