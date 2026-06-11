@@ -2,6 +2,21 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRequireAuth, API_BASE as API_URL } from "../../lib/auth";
+import { TimeSeriesChart } from "../../components/TimeSeriesChart";
+
+interface MetricSeries {
+  name: string;
+  unit: string | null;
+  points: { t: string; v: number }[];
+}
+
+/** Friendly titles for known metric names. */
+const METRIC_TITLES: Record<string, string> = {
+  "uptime.up": "Uptime",
+  "uptime.response_ms": "Response time",
+  "ssl.days_until_expiry": "SSL days remaining",
+};
+const metricTitle = (name: string) => METRIC_TITLES[name] ?? name;
 
 type ProjectStatus =
   | "idea"
@@ -136,6 +151,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [sla, setSla] = useState<SlaRow | null>(null);
   const [insight, setInsight] = useState<string | null>(null);
   const [rules, setRules] = useState<AlertRule[]>([]);
+  const [history, setHistory] = useState<MetricSeries[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -149,7 +165,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     if (!id) return;
     setError(null);
     try {
-      const [managed, cat, doms, livRes, slaRes, insRes, ruleRes] = await Promise.all([
+      const [managed, cat, doms, livRes, slaRes, insRes, ruleRes, histRes] = await Promise.all([
         api("/manage/projects") as Promise<ManagedProject[]>,
         api("/manage/connectors") as Promise<CatalogItem[]>,
         api("/manage/domains") as Promise<{ id: string; fqdn: string }[]>,
@@ -157,6 +173,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         api(`/sla?projectId=${id}`).catch(() => null),
         api(`/insights?projectId=${id}`).catch(() => null),
         api(`/manage/projects/${id}/alert-rules`).catch(() => []),
+        api(`/metrics/history?projectId=${id}&windowDays=30`).catch(() => []),
       ]);
       const found = managed.find((p) => p.id === id) ?? null;
       setProject(found);
@@ -174,6 +191,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         );
       }
       setRules(Array.isArray(ruleRes) ? (ruleRes as AlertRule[]) : []);
+      setHistory(Array.isArray(histRes) ? (histRes as MetricSeries[]) : []);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -297,6 +315,23 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         </div>
       ) : (
         <div className="grid gap-6 sm:grid-cols-2">
+          {/* Time-series charts */}
+          {history.filter((s) => s.points.length > 1).length > 0 && (
+            <div className="grid gap-6 sm:col-span-2 sm:grid-cols-2">
+              {history
+                .filter((s) => s.points.length > 1)
+                .map((s) => (
+                  <section key={s.name} className="card p-4">
+                    <h2 className="mb-3 text-sm font-semibold">
+                      {metricTitle(s.name)}{" "}
+                      <span className="font-normal text-text-muted">· 30d</span>
+                    </h2>
+                    <TimeSeriesChart points={s.points} unit={s.unit} />
+                  </section>
+                ))}
+            </div>
+          )}
+
           <section className="card p-4">
             <h2 className="mb-3 text-sm font-semibold">Uptime (30d)</h2>
             {sla && sla.samples > 0 ? (

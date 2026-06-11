@@ -147,6 +147,42 @@ export function StatTile({
   );
 }
 
+/* -------------------------------------------------------------- Sparkline -- */
+
+/** Tiny inline trend line — dependency-free SVG, good for cards/rows. */
+export function Sparkline({
+  values,
+  width = 96,
+  height = 24,
+  className,
+}: {
+  values: number[];
+  width?: number;
+  height?: number;
+  className?: string;
+}) {
+  if (values.length < 2) return null;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = max - min || 1;
+  const stepX = width / (values.length - 1);
+  const points = values
+    .map((v, i) => `${(i * stepX).toFixed(1)},${(height - ((v - min) / span) * height).toFixed(1)}`)
+    .join(" ");
+  return (
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className={className} aria-hidden>
+      <polyline
+        points={points}
+        fill="none"
+        stroke="rgb(var(--accent-strong))"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 /* ------------------------------------------------------------------ Modal -- */
 
 export function Modal({
