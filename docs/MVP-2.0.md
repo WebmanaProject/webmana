@@ -234,10 +234,12 @@ Remaining: FX normalization (multi-currency), renewal calendar (iCal) export.
 Incident lifecycle, routing/escalation, maintenance windows, status page 2.0,
 invitation emails.
 
-Delivered: incident lifecycle (`incidents` table, open/acknowledged/resolved with
-ack/resolve timestamps; API + `/incidents` page + nav; active incidents feed the
-Portfolio Overview risk queue). Remaining: alert routing/escalation, maintenance
-windows, status page 2.0, SMTP invitation emails, weekly AI digest (carried from M2).
+Delivered: incident lifecycle (`incidents` table, open/acknowledged/resolved +
+`/incidents` page, feeding the Overview risk queue); **maintenance windows**
+(`maintenance_windows` table + worker alert suppression while active + UI);
+**SMTP invitation emails** (API mailer, emails the accept link when SMTP is set,
+graceful link fallback otherwise). Remaining: alert routing/escalation, status
+page 2.0, weekly AI digest (carried from M2).
 
 ### M5 — SDK v2 + Actions framework **[BOTH]**
 Capabilities/actions/OAuth in the SDK; audit log + action UI in the app; a safe
