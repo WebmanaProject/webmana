@@ -361,19 +361,52 @@ function DomainsPanel({
   run: (fn: () => Promise<unknown>) => Promise<void>;
 }) {
   const [fqdn, setFqdn] = useState("");
+  const [showDetails, setShowDetails] = useState(false);
+  const [registrar, setRegistrar] = useState("");
+  const [expiresAt, setExpiresAt] = useState("");
+  const [autoRenew, setAutoRenew] = useState(false);
+  const [purchaseCost, setPurchaseCost] = useState("");
+  const [renewalCost, setRenewalCost] = useState("");
+  const [currency, setCurrency] = useState("");
+  const [purchaseDate, setPurchaseDate] = useState("");
 
   const assigned = new Set(project.domains.map((d) => d.fqdn));
   const suggestions = allDomains.filter((d) => !assigned.has(d.fqdn));
+
+  function resetForm() {
+    setFqdn("");
+    setShowDetails(false);
+    setRegistrar("");
+    setExpiresAt("");
+    setAutoRenew(false);
+    setPurchaseCost("");
+    setRenewalCost("");
+    setCurrency("");
+    setPurchaseDate("");
+  }
 
   const assign = () =>
     run(async () => {
       const value = fqdn.trim().toLowerCase();
       if (!value) return;
-      await api(`/manage/projects/${project.id}/domains`, {
+      // Assign (find-or-create) the domain, then apply optional details if any.
+      const { id } = (await api(`/manage/projects/${project.id}/domains`, {
         method: "POST",
         body: JSON.stringify({ fqdn: value }),
-      });
-      setFqdn("");
+      })) as { id: string };
+
+      const details: Record<string, unknown> = {};
+      if (registrar.trim()) details.registrar = registrar.trim();
+      if (expiresAt) details.expiresAt = expiresAt;
+      if (autoRenew) details.autoRenew = true;
+      if (purchaseCost) details.purchaseCost = Number(purchaseCost);
+      if (renewalCost) details.renewalCost = Number(renewalCost);
+      if (currency.trim()) details.costCurrency = currency.trim();
+      if (purchaseDate) details.purchaseDate = purchaseDate;
+      if (Object.keys(details).length > 0) {
+        await api(`/domains/${id}`, { method: "PATCH", body: JSON.stringify(details) });
+      }
+      resetForm();
     });
 
   return (
@@ -395,28 +428,72 @@ function DomainsPanel({
         </ul>
       )}
 
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-border p-3">
-        <input
-          list="domain-suggestions"
-          value={fqdn}
-          onChange={(e) => setFqdn(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") void assign();
-          }}
-          placeholder="example.com"
-          className="input min-w-[12rem] flex-1 font-mono"
-        />
-        <datalist id="domain-suggestions">
-          {suggestions.map((d) => (
-            <option key={d.id} value={d.fqdn} />
-          ))}
-        </datalist>
-        <button onClick={assign} disabled={busy || !fqdn.trim()} className="btn-accent">
-          Assign domain
-        </button>
+      <div className="rounded-lg border border-dashed border-border p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            list="domain-suggestions"
+            value={fqdn}
+            onChange={(e) => setFqdn(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !showDetails) void assign();
+            }}
+            placeholder="example.com"
+            className="input min-w-[12rem] flex-1 font-mono"
+          />
+          <datalist id="domain-suggestions">
+            {suggestions.map((d) => (
+              <option key={d.id} value={d.fqdn} />
+            ))}
+          </datalist>
+          <button
+            type="button"
+            onClick={() => setShowDetails((v) => !v)}
+            className="btn-ghost"
+            aria-expanded={showDetails}
+          >
+            {showDetails ? "Hide details" : "+ details"}
+          </button>
+          <button onClick={assign} disabled={busy || !fqdn.trim()} className="btn-accent">
+            Assign domain
+          </button>
+        </div>
+
+        {showDetails && (
+          <div className="mt-3 grid gap-3 border-t border-border pt-3 sm:grid-cols-3">
+            <label className="text-xs font-medium text-text-muted">
+              Registrar
+              <input className="input mt-1 w-full" value={registrar} onChange={(e) => setRegistrar(e.target.value)} placeholder="Cloudflare, GoDaddy…" />
+            </label>
+            <label className="text-xs font-medium text-text-muted">
+              Expiry date
+              <input className="input mt-1 w-full" type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} />
+            </label>
+            <label className="flex items-center gap-2 self-end pb-2 text-xs font-medium text-text-muted">
+              <input type="checkbox" checked={autoRenew} onChange={(e) => setAutoRenew(e.target.checked)} />
+              Auto-renew
+            </label>
+            <label className="text-xs font-medium text-text-muted">
+              Purchase cost
+              <input className="input mt-1 w-full" type="number" step="0.01" value={purchaseCost} onChange={(e) => setPurchaseCost(e.target.value)} placeholder="12.00" />
+            </label>
+            <label className="text-xs font-medium text-text-muted">
+              Renewal / yr
+              <input className="input mt-1 w-full" type="number" step="0.01" value={renewalCost} onChange={(e) => setRenewalCost(e.target.value)} placeholder="14.00" />
+            </label>
+            <label className="text-xs font-medium text-text-muted">
+              Currency
+              <input className="input mt-1 w-full uppercase" maxLength={3} value={currency} onChange={(e) => setCurrency(e.target.value.toUpperCase())} placeholder="USD" />
+            </label>
+            <label className="text-xs font-medium text-text-muted">
+              Purchase date
+              <input className="input mt-1 w-full" type="date" value={purchaseDate} onChange={(e) => setPurchaseDate(e.target.value)} />
+            </label>
+          </div>
+        )}
       </div>
       <p className="mt-2 text-xs text-text-muted">
-        Type a new domain to create &amp; attach it, or pick an existing one. Assign as many as you need.
+        Type a new domain to create &amp; attach it, or pick an existing one. Add registrar &amp; cost
+        details now (optional) or later via each domain’s Edit. Assign as many as you need.
       </p>
     </section>
   );
