@@ -13,6 +13,7 @@ import { evaluateAlerts } from "./alerts.js";
 import { detectCostAnomalies } from "./cost-anomaly.js";
 import { generateInsights, insightsIntervalMs, readAiConfig } from "./insights.js";
 import { sendWeeklyDigest, digestIntervalMs } from "./digest.js";
+import { escalateStaleIncidents, escalationIntervalMs } from "./escalation.js";
 import { checkDomainExpiry } from "./domain-expiry.js";
 
 const connection = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379", {
@@ -205,6 +206,10 @@ const worker = new Worker(
       const n = await sendWeeklyDigest(db, new Date());
       console.log(`[worker] weekly digest sent ${n} email(s)`);
     }
+    if (job.name === "escalation") {
+      const n = await escalateStaleIncidents(db, new Date());
+      if (n > 0) console.log(`[worker] escalated ${n} stale incident(s)`);
+    }
   },
   { connection },
 );
@@ -249,6 +254,13 @@ worker.on("ready", async () => {
     { repeat: { every: digestIntervalMs() }, jobId: "digest" },
   );
   await syncQueue.add("digest", {}, { jobId: "digest-boot", removeOnComplete: true });
+
+  // Escalate stale, unacknowledged incidents on a short cadence.
+  await syncQueue.add(
+    "escalation",
+    {},
+    { repeat: { every: escalationIntervalMs() }, jobId: "escalation" },
+  );
 
   // Scheduled AI insight generation (only when a provider key is configured).
   if (readAiConfig()) {

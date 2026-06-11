@@ -391,6 +391,8 @@ export const incidents = pgTable(
     status: incidentStatusEnum("status").notNull().default("open"),
     acknowledgedAt: timestamp("acknowledged_at", { withTimezone: true }),
     resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    /** Set once when a stale unacknowledged incident has been escalated. */
+    escalatedAt: timestamp("escalated_at", { withTimezone: true }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },

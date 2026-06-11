@@ -92,6 +92,13 @@
       "when": 1781189944282,
       "tag": "0012_demonic_spitfire",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1781190376350,
+      "tag": "0013_public_stellaris",
+      "breakpoints": true
     }
   ]
 }
