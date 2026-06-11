@@ -220,9 +220,14 @@ Portfolio Overview band (health/spend stat tiles) with a "needs attention" risk
 queue (down/degraded, SSL ≤14d, live-but-unmonitored, domain renewals ≤30d).
 Deferred: weekly AI digest email (folded into M4 once SMTP invites land).
 
-### M3 — FinOps 2.0 **[APP]** + first revenue connector **[CONN]**
+### M3 — FinOps 2.0 **[APP]** + first revenue connector **[CONN]** — 🟡 in progress
 FX normalization, budgets/forecasts, profitability table, Stripe revenue
 connector, renewal calendar export.
+
+Delivered: Stripe revenue connector (`revenue.mrr` + `revenue.active_subscriptions`,
+in both repos); Finance now shows MRR + a per-project profitability table
+(annual revenue vs cost → margin) and MRR on the Portfolio Overview. Remaining:
+budgets/forecasts, FX normalization (multi-currency), renewal calendar export.
 
 ### M4 — Incidents + Alerting 2.0 + SMTP invites **[APP]**
 Incident lifecycle, routing/escalation, maintenance windows, status page 2.0,
