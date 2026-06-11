@@ -211,9 +211,14 @@ history API (`GET /api/metrics/history`) + `TimeSeriesChart` (Recharts) +
 folded into later passes: notification center, kanban sparkline wiring, deeper
 a11y audit.
 
-### M2 — Portfolio Intelligence + Notes/TODO **[APP]**
+### M2 — Portfolio Intelligence + Notes/TODO **[APP]** — ✅ shipped
 Portfolio Overview home, needs-attention queue, risk register, per-project
 notes/TODO, weekly AI digest. Closes the biggest 1.0 follow-up.
+
+Delivered: per-project notes & tasks (`project_notes` table + manage CRUD + UI);
+Portfolio Overview band (health/spend stat tiles) with a "needs attention" risk
+queue (down/degraded, SSL ≤14d, live-but-unmonitored, domain renewals ≤30d).
+Deferred: weekly AI digest email (folded into M4 once SMTP invites land).
 
 ### M3 — FinOps 2.0 **[APP]** + first revenue connector **[CONN]**
 FX normalization, budgets/forecasts, profitability table, Stripe revenue
