@@ -1,15 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRequireAuth, API_BASE as API_URL } from "../lib/auth";
-
-interface ManagedConnector {
-  id: string;
-  connectorId: string;
-  enabled: boolean;
-  lastSyncStatus: string | null;
-  lastSyncError: string | null;
-}
 
 type ProjectStatus =
   | "idea"
@@ -19,35 +11,33 @@ type ProjectStatus =
   | "paused"
   | "archived";
 
-const STATUS_OPTIONS: { value: ProjectStatus; label: string }[] = [
-  { value: "idea", label: "Idea" },
-  { value: "in_progress", label: "In progress" },
-  { value: "rebuild", label: "Rebuild" },
-  { value: "live", label: "Live" },
-  { value: "paused", label: "Paused" },
-  { value: "archived", label: "Archived" },
-];
+const STATUS_META: Record<ProjectStatus, { label: string; cls: string }> = {
+  idea: { label: "Idea", cls: "bg-slate-100 text-slate-600" },
+  in_progress: { label: "In progress", cls: "bg-amber-100 text-amber-700" },
+  rebuild: { label: "Rebuild", cls: "bg-orange-100 text-orange-700" },
+  live: { label: "Live", cls: "bg-accent/15 text-accent-strong" },
+  paused: { label: "Paused", cls: "bg-slate-100 text-slate-500" },
+  archived: { label: "Archived", cls: "bg-slate-100 text-slate-400" },
+};
+
+const STATUS_OPTIONS = (Object.keys(STATUS_META) as ProjectStatus[]).map((value) => ({
+  value,
+  label: STATUS_META[value].label,
+}));
+
+interface ProjectDomain {
+  id: string;
+  fqdn: string;
+  primary: boolean;
+}
 
 interface ManagedProject {
   id: string;
   name: string;
-  domain: string | null;
   status: ProjectStatus;
-  description: string | null;
-  links: Record<string, string>;
-  purchaseCost: number | null;
-  renewalCost: number | null;
-  costCurrency: string | null;
-  purchaseDate: string | null;
   tags: string[];
-  connectors: ManagedConnector[];
-}
-
-interface CatalogItem {
-  id: string;
-  title: string;
-  requiresSecrets: boolean;
-  defaultIntervalSeconds: number;
+  domains: ProjectDomain[];
+  connectors: { id: string }[];
 }
 
 async function api(path: string, init?: RequestInit) {
@@ -76,23 +66,21 @@ async function api(path: string, init?: RequestInit) {
 export default function ManagePage() {
   useRequireAuth();
   const [projects, setProjects] = useState<ManagedProject[]>([]);
-  const [catalog, setCatalog] = useState<CatalogItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // New-project form state.
-  const [newName, setNewName] = useState("");
-  const [newDomain, setNewDomain] = useState("");
-  const [newTags, setNewTags] = useState("");
-  const [newStatus, setNewStatus] = useState<ProjectStatus>("idea");
+  const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // New-project form.
+  const [newName, setNewName] = useState("");
+  const [newStatus, setNewStatus] = useState<ProjectStatus>("idea");
+  const [adding, setAdding] = useState(false);
 
   const reload = useCallback(async () => {
     setError(null);
     try {
-      const [p, c] = await Promise.all([api("/manage/projects"), api("/manage/connectors")]);
-      setProjects(p as ManagedProject[]);
-      setCatalog(c as CatalogItem[]);
+      const p = (await api("/manage/projects")) as ManagedProject[];
+      setProjects(p);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -104,41 +92,47 @@ export default function ManagePage() {
     void reload();
   }, [reload]);
 
-  async function run(fn: () => Promise<unknown>) {
+  async function createProject() {
+    if (!newName.trim()) return;
     setBusy(true);
     setError(null);
     try {
-      await fn();
-      await reload();
+      const { id } = (await api("/manage/projects", {
+        method: "POST",
+        body: JSON.stringify({ name: newName.trim(), status: newStatus }),
+      })) as { id: string };
+      // Drop straight into the new project to set it up.
+      window.location.href = `/projects/${id}`;
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
-    } finally {
       setBusy(false);
     }
   }
 
-  const createProject = () =>
-    run(async () => {
-      await api("/manage/projects", {
-        method: "POST",
-        body: JSON.stringify({
-          name: newName,
-          domain: newDomain,
-          status: newStatus,
-          tags: newTags.split(",").map((t) => t.trim()).filter(Boolean),
-        }),
-      });
-      setNewName("");
-      setNewDomain("");
-      setNewTags("");
-      setNewStatus("idea");
-    });
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const sorted = [...projects].sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+    );
+    if (!q) return sorted;
+    return sorted.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        p.domains.some((d) => d.fqdn.toLowerCase().includes(q)) ||
+        p.tags.some((t) => t.toLowerCase().includes(q)),
+    );
+  }, [projects, query]);
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-10">
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold tracking-tight">Manage</h1>
-        <p className="mt-1 text-text-muted">Add and configure projects and connectors.</p>
+    <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Manage projects</h1>
+          <p className="mt-0.5 text-sm text-text-muted">
+            {projects.length} project{projects.length === 1 ? "" : "s"} · open one to edit it, assign
+            domains, and configure connectors.
+          </p>
+        </div>
       </div>
 
       {error && (
@@ -148,294 +142,112 @@ export default function ManagePage() {
       )}
 
       {/* New project */}
-      <section className="mb-10 rounded-2xl border border-border bg-surface p-6 shadow-sm">
-        <h2 className="mb-4 text-lg font-semibold">New project</h2>
-        <div className="grid gap-3 sm:grid-cols-2">
+      <section className="card mb-6 p-4">
+        {adding ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              autoFocus
+              className="input min-w-[12rem] flex-1"
+              placeholder="Project name (e.g. Acme Marketing Site)"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void createProject();
+                if (e.key === "Escape") setAdding(false);
+              }}
+            />
+            <select
+              className="input"
+              value={newStatus}
+              onChange={(e) => setNewStatus(e.target.value as ProjectStatus)}
+            >
+              {STATUS_OPTIONS.map((s) => (
+                <option key={s.value} value={s.value}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+            <button onClick={createProject} disabled={busy || !newName.trim()} className="btn-accent">
+              Create
+            </button>
+            <button onClick={() => setAdding(false)} className="btn-ghost">
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <button onClick={() => setAdding(true)} className="btn-accent">
+            + New project
+          </button>
+        )}
+      </section>
+
+      {/* Search */}
+      {projects.length > 0 && (
+        <div className="relative mb-4">
+          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-muted">
+            ⌕
+          </span>
           <input
-            className="rounded-lg border border-border bg-bg px-3 py-2 text-sm"
-            placeholder="Name (e.g. My Blog)"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-          />
-          <input
-            className="rounded-lg border border-border bg-bg px-3 py-2 text-sm"
-            placeholder="Domain (optional, e.g. blog.com)"
-            value={newDomain}
-            onChange={(e) => setNewDomain(e.target.value)}
-          />
-          <select
-            className="rounded-lg border border-border bg-bg px-3 py-2 text-sm"
-            value={newStatus}
-            onChange={(e) => setNewStatus(e.target.value as ProjectStatus)}
-          >
-            {STATUS_OPTIONS.map((s) => (
-              <option key={s.value} value={s.value}>
-                {s.label}
-              </option>
-            ))}
-          </select>
-          <input
-            className="rounded-lg border border-border bg-bg px-3 py-2 text-sm"
-            placeholder="Tags (comma separated)"
-            value={newTags}
-            onChange={(e) => setNewTags(e.target.value)}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Filter by name, domain, or tag…"
+            className="input w-full py-2 pl-8 pr-3"
           />
         </div>
-        <button
-          onClick={createProject}
-          disabled={busy || !newName.trim()}
-          className="mt-4 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-ink disabled:opacity-50"
-        >
-          Add project
-        </button>
-      </section>
+      )}
 
       {loading ? (
         <p className="text-text-muted">Loading…</p>
       ) : projects.length === 0 ? (
-        <p className="text-text-muted">No projects yet — add one above.</p>
+        <p className="text-text-muted">No projects yet — create one above.</p>
+      ) : visible.length === 0 ? (
+        <p className="text-text-muted">No projects match “{query}”.</p>
       ) : (
-        <div className="flex flex-col gap-6">
-          {projects.map((project) => (
-            <ProjectCard
-              key={project.id}
-              project={project}
-              catalog={catalog}
-              busy={busy}
-              run={run}
-              api={api}
-            />
-          ))}
-        </div>
+        <ul className="overflow-hidden rounded-2xl border border-border bg-surface shadow-card">
+          {visible.map((p, i) => {
+            const status = STATUS_META[p.status];
+            const primary = p.domains.find((d) => d.primary) ?? p.domains[0];
+            return (
+              <li key={p.id} className={i > 0 ? "border-t border-border" : ""}>
+                <a
+                  href={`/projects/${p.id}`}
+                  className="group flex items-center gap-3 px-4 py-3 transition hover:bg-bg-subtle"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="truncate font-medium group-hover:text-accent-strong">
+                        {p.name}
+                      </span>
+                      <span className={`badge ${status.cls}`}>{status.label}</span>
+                    </div>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-text-muted">
+                      {primary ? (
+                        <span className="font-mono">
+                          {primary.fqdn}
+                          {p.domains.length > 1 && (
+                            <span className="text-text-muted/70"> +{p.domains.length - 1}</span>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="italic text-text-muted/60">no domain</span>
+                      )}
+                      {p.connectors.length > 0 && <span>· {p.connectors.length} conn</span>}
+                      {p.tags.slice(0, 3).map((t) => (
+                        <span key={t} className="rounded bg-bg-subtle px-1.5 py-0.5">
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <span className="shrink-0 text-text-muted transition group-hover:translate-x-0.5 group-hover:text-accent-strong">
+                    →
+                  </span>
+                </a>
+              </li>
+            );
+          })}
+        </ul>
       )}
     </main>
-  );
-}
-
-function ProjectCard({
-  project,
-  catalog,
-  busy,
-  run,
-  api,
-}: {
-  project: ManagedProject;
-  catalog: CatalogItem[];
-  busy: boolean;
-  run: (fn: () => Promise<unknown>) => Promise<void>;
-  api: (path: string, init?: RequestInit) => Promise<unknown>;
-}) {
-  const [editName, setEditName] = useState(project.name);
-  const [editDomain, setEditDomain] = useState(project.domain ?? "");
-  const [editStatus, setEditStatus] = useState<ProjectStatus>(project.status);
-  const [editTags, setEditTags] = useState(project.tags.join(", "));
-  const [editPurchase, setEditPurchase] = useState(project.purchaseCost?.toString() ?? "");
-  const [editRenewal, setEditRenewal] = useState(project.renewalCost?.toString() ?? "");
-  const [editCurrency, setEditCurrency] = useState(project.costCurrency ?? "");
-  const [editPurchaseDate, setEditPurchaseDate] = useState(project.purchaseDate ?? "");
-
-  // Add-connector form.
-  const [connId, setConnId] = useState(catalog[0]?.id ?? "");
-  const [secretsText, setSecretsText] = useState("");
-  const [configText, setConfigText] = useState("");
-
-  const selected = catalog.find((c) => c.id === connId);
-
-  const saveProject = () =>
-    run(() =>
-      api(`/manage/projects/${project.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          name: editName,
-          domain: editDomain,
-          status: editStatus,
-          tags: editTags.split(",").map((t) => t.trim()).filter(Boolean),
-          purchaseCost: editPurchase ? Number(editPurchase) : null,
-          renewalCost: editRenewal ? Number(editRenewal) : null,
-          costCurrency: editCurrency || null,
-          purchaseDate: editPurchaseDate || null,
-        }),
-      }),
-    );
-
-  const deleteProject = () => {
-    if (!confirm(`Delete project "${project.name}" and all its data?`)) return;
-    void run(() => api(`/manage/projects/${project.id}`, { method: "DELETE" }));
-  };
-
-  const addConnector = () =>
-    run(async () => {
-      let config: Record<string, unknown> = {};
-      let secrets: Record<string, string> = {};
-      if (configText.trim()) config = JSON.parse(configText) as Record<string, unknown>;
-      if (secretsText.trim()) secrets = JSON.parse(secretsText) as Record<string, string>;
-      await api(`/manage/projects/${project.id}/connectors`, {
-        method: "POST",
-        body: JSON.stringify({ connectorId: connId, config, secrets }),
-      });
-      setSecretsText("");
-      setConfigText("");
-    });
-
-  return (
-    <article className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <input
-          className="rounded-lg border border-border bg-bg px-3 py-2 text-sm"
-          value={editName}
-          onChange={(e) => setEditName(e.target.value)}
-        />
-        <input
-          className="rounded-lg border border-border bg-bg px-3 py-2 font-mono text-sm"
-          placeholder="domain (optional)"
-          value={editDomain}
-          onChange={(e) => setEditDomain(e.target.value)}
-        />
-        <select
-          className="rounded-lg border border-border bg-bg px-3 py-2 text-sm"
-          value={editStatus}
-          onChange={(e) => setEditStatus(e.target.value as ProjectStatus)}
-        >
-          {STATUS_OPTIONS.map((s) => (
-            <option key={s.value} value={s.value}>
-              {s.label}
-            </option>
-          ))}
-        </select>
-        <input
-          className="rounded-lg border border-border bg-bg px-3 py-2 text-sm"
-          placeholder="tags, comma separated"
-          value={editTags}
-          onChange={(e) => setEditTags(e.target.value)}
-        />
-      </div>
-      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <input className="rounded-lg border border-border bg-bg px-3 py-2 text-sm" type="number" step="0.01" placeholder="purchase cost" value={editPurchase} onChange={(e) => setEditPurchase(e.target.value)} />
-        <input className="rounded-lg border border-border bg-bg px-3 py-2 text-sm" type="number" step="0.01" placeholder="renewal / yr" value={editRenewal} onChange={(e) => setEditRenewal(e.target.value)} />
-        <input className="rounded-lg border border-border bg-bg px-3 py-2 text-sm uppercase" maxLength={3} placeholder="currency" value={editCurrency} onChange={(e) => setEditCurrency(e.target.value.toUpperCase())} />
-        <input className="rounded-lg border border-border bg-bg px-3 py-2 text-sm" type="date" title="purchase date" value={editPurchaseDate} onChange={(e) => setEditPurchaseDate(e.target.value)} />
-      </div>
-      <div className="mt-3 flex gap-2">
-        <button
-          onClick={saveProject}
-          disabled={busy}
-          className="rounded-lg border border-border px-3 py-1.5 text-sm hover:border-accent disabled:opacity-50"
-        >
-          Save
-        </button>
-        <button
-          onClick={deleteProject}
-          disabled={busy}
-          className="rounded-lg border border-red-200 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
-        >
-          Delete project
-        </button>
-      </div>
-
-      {/* Connectors */}
-      <div className="mt-5 border-t border-border pt-4">
-        <h3 className="mb-3 text-sm font-semibold text-text-muted">Connectors</h3>
-        {project.connectors.length === 0 ? (
-          <p className="mb-3 text-sm text-text-muted">No connectors yet.</p>
-        ) : (
-          <ul className="mb-4 flex flex-col gap-2">
-            {project.connectors.map((c) => (
-              <li
-                key={c.id}
-                className="flex items-center justify-between rounded-lg border border-border bg-bg-subtle px-3 py-2 text-sm"
-              >
-                <span className="flex items-center gap-2">
-                  <span
-                    className={`h-2 w-2 rounded-full ${
-                      c.lastSyncStatus === "ok"
-                        ? "bg-accent"
-                        : c.lastSyncStatus === "error"
-                          ? "bg-red-500"
-                          : "bg-border"
-                    }`}
-                  />
-                  <span className="font-medium">{c.connectorId}</span>
-                  {!c.enabled && <span className="text-xs text-text-muted">(disabled)</span>}
-                </span>
-                <span className="flex gap-2">
-                  <button
-                    onClick={() =>
-                      run(() =>
-                        api(`/manage/projects/${project.id}/connectors/${c.id}`, {
-                          method: "PATCH",
-                          body: JSON.stringify({ enabled: !c.enabled }),
-                        }),
-                      )
-                    }
-                    disabled={busy}
-                    className="rounded border border-border px-2 py-1 text-xs hover:border-accent disabled:opacity-50"
-                  >
-                    {c.enabled ? "Disable" : "Enable"}
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (!confirm(`Remove connector "${c.connectorId}"?`)) return;
-                      void run(() =>
-                        api(`/manage/projects/${project.id}/connectors/${c.id}`, {
-                          method: "DELETE",
-                        }),
-                      );
-                    }}
-                    disabled={busy}
-                    className="rounded border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50"
-                  >
-                    Remove
-                  </button>
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {/* Add connector */}
-        <div className="rounded-lg border border-dashed border-border p-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <select
-              className="rounded-lg border border-border bg-bg px-3 py-2 text-sm"
-              value={connId}
-              onChange={(e) => setConnId(e.target.value)}
-            >
-              {catalog.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.title} {c.requiresSecrets ? "(needs key)" : ""}
-                </option>
-              ))}
-            </select>
-            <button
-              onClick={addConnector}
-              disabled={busy || !connId}
-              className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-accent-ink disabled:opacity-50"
-            >
-              Add / update
-            </button>
-          </div>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">
-            <textarea
-              className="rounded-lg border border-border bg-bg px-3 py-2 font-mono text-xs"
-              rows={2}
-              placeholder='Config JSON (optional), e.g. {"url":"https://blog.com"}'
-              value={configText}
-              onChange={(e) => setConfigText(e.target.value)}
-            />
-            <textarea
-              className="rounded-lg border border-border bg-bg px-3 py-2 font-mono text-xs"
-              rows={2}
-              placeholder={
-                selected?.requiresSecrets
-                  ? 'Secrets JSON, e.g. {"apiKey":"..."} (encrypted at rest)'
-                  : "Secrets JSON (not needed for this connector)"
-              }
-              value={secretsText}
-              onChange={(e) => setSecretsText(e.target.value)}
-            />
-          </div>
-        </div>
-      </div>
-    </article>
   );
 }

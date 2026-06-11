@@ -31,7 +31,6 @@ export function Logo({ className = "" }: { className?: string }) {
 /** The single source of truth for the app's primary navigation. */
 const NAV_LINKS: { href: string; label: string }[] = [
   { href: "/dashboard", label: "Portfolio" },
-  { href: "/domains", label: "Domains" },
   { href: "/finance", label: "Finance" },
   { href: "/manage", label: "Manage" },
   { href: "/sla", label: "SLA" },

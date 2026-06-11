@@ -16,6 +16,7 @@ import {
   type UpsertConnectorInput,
   type CreateAlertRuleInput,
   type CreateAlertChannelInput,
+  type AssignDomainInput,
 } from "./manage.service.js";
 import { AuthGuard } from "../auth/auth.guard.js";
 import { RolesGuard, Roles } from "../auth/roles.guard.js";
@@ -54,6 +55,34 @@ export class ManageController {
   @HttpCode(200)
   deleteProject(@Param("id") id: string) {
     return this.manage.deleteProject(id).then(() => ({ ok: true }));
+  }
+
+  /* ------------------------------------------------------------ Domains ---- */
+
+  /** All domains in the org, for the project assignment picker. */
+  @Get("domains")
+  listDomains() {
+    return this.manage.listDomainsForPicker();
+  }
+
+  /** Assign a domain to a project (creates it if the FQDN is new). */
+  @Post("projects/:id/domains")
+  @Roles("editor")
+  assignDomain(@Param("id") id: string, @Body() body: AssignDomainInput) {
+    return this.manage.assignDomain(id, body);
+  }
+
+  @Patch("projects/:id/domains/:domainId/primary")
+  @Roles("editor")
+  setPrimaryDomain(@Param("id") id: string, @Param("domainId") domainId: string) {
+    return this.manage.setPrimaryDomain(id, domainId).then(() => ({ ok: true }));
+  }
+
+  @Delete("projects/:id/domains/:domainId")
+  @Roles("editor")
+  @HttpCode(200)
+  unassignDomain(@Param("id") id: string, @Param("domainId") domainId: string) {
+    return this.manage.unassignDomain(id, domainId).then(() => ({ ok: true }));
   }
 
   @Post("projects/:id/connectors")

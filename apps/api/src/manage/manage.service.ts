@@ -49,6 +49,25 @@ function applyCostFields(
     patch.purchaseDate = input.purchaseDate?.trim() || null;
 }
 
+/** A domain assigned to a project, as shown in the project workspace. */
+export interface ProjectDomainView {
+  id: string;
+  fqdn: string;
+  primary: boolean;
+  registrar: string | null;
+  expiresAt: string | null;
+  autoRenew: boolean;
+  renewalCost: number | null;
+  costCurrency: string | null;
+}
+
+export interface AssignDomainInput {
+  /** Domain to attach. Created in the org if it does not exist yet. */
+  fqdn: string;
+  /** Make this the project's primary domain (drives monitoring + display). */
+  primary?: boolean;
+}
+
 export interface UpsertConnectorInput {
   connectorId: string;
   config?: Record<string, unknown>;
@@ -122,7 +141,7 @@ export class ManageService {
     }
   }
 
-  /** Projects with their tags and connector instances (incl. ids) for the admin UI. */
+  /** Projects with their tags, connector instances, and assigned domains. */
   async listProjectsForManagement(): Promise<
     {
       id: string;
@@ -136,6 +155,7 @@ export class ManageService {
       costCurrency: string | null;
       purchaseDate: string | null;
       tags: string[];
+      domains: ProjectDomainView[];
       connectors: {
         id: string;
         connectorId: string;
@@ -164,7 +184,7 @@ export class ManageService {
     const ids = projectRows.map((p) => p.id);
     if (ids.length === 0) return [];
 
-    const [tagRows, connectorRows] = await Promise.all([
+    const [tagRows, connectorRows, domainRows] = await Promise.all([
       this.db
         .select({ projectId: schema.projectTags.projectId, tag: schema.projectTags.tag })
         .from(schema.projectTags),
@@ -178,6 +198,20 @@ export class ManageService {
           lastSyncError: schema.connectorInstances.lastSyncError,
         })
         .from(schema.connectorInstances),
+      this.db
+        .select({
+          projectId: schema.projectDomains.projectId,
+          primary: schema.projectDomains.primary,
+          id: schema.domains.id,
+          fqdn: schema.domains.fqdn,
+          registrar: schema.domains.registrar,
+          expiresAt: schema.domains.expiresAt,
+          autoRenew: schema.domains.autoRenew,
+          renewalCost: schema.domains.renewalCost,
+          costCurrency: schema.domains.costCurrency,
+        })
+        .from(schema.projectDomains)
+        .innerJoin(schema.domains, eq(schema.projectDomains.domainId, schema.domains.id)),
     ]);
 
     return projectRows.map((p) => ({
@@ -187,6 +221,19 @@ export class ManageService {
         .filter((t) => t.projectId === p.id)
         .map((t) => t.tag)
         .sort((a, b) => a.localeCompare(b)),
+      domains: domainRows
+        .filter((d) => d.projectId === p.id)
+        .map((d) => ({
+          id: d.id,
+          fqdn: d.fqdn,
+          primary: d.primary,
+          registrar: d.registrar,
+          expiresAt: d.expiresAt,
+          autoRenew: d.autoRenew,
+          renewalCost: d.renewalCost,
+          costCurrency: d.costCurrency,
+        }))
+        .sort((a, b) => Number(b.primary) - Number(a.primary) || a.fqdn.localeCompare(b.fqdn)),
       connectors: connectorRows
         .filter((c) => c.projectId === p.id)
         .map((c) => ({
@@ -289,6 +336,145 @@ export class ManageService {
       .where(eq(schema.projects.id, projectId))
       .returning({ id: schema.projects.id });
     if (deleted.length === 0) throw new NotFoundException("project not found");
+  }
+
+  /* ------------------------------------------------------------ Domains ----- */
+
+  private async requireProject(projectId: string): Promise<void> {
+    const [project] = await this.db
+      .select({ id: schema.projects.id })
+      .from(schema.projects)
+      .where(eq(schema.projects.id, projectId))
+      .limit(1);
+    if (!project) throw new NotFoundException("project not found");
+  }
+
+  /** All domains in the org, for the project assignment picker. */
+  async listDomainsForPicker(): Promise<{ id: string; fqdn: string }[]> {
+    const orgId = await this.defaultOrgId();
+    return this.db
+      .select({ id: schema.domains.id, fqdn: schema.domains.fqdn })
+      .from(schema.domains)
+      .where(eq(schema.domains.organizationId, orgId))
+      .orderBy(schema.domains.fqdn);
+  }
+
+  /** Re-point the project's legacy `domain` column at its current primary. */
+  private async syncPrimaryDomainColumn(projectId: string): Promise<void> {
+    const [primary] = await this.db
+      .select({ fqdn: schema.domains.fqdn })
+      .from(schema.projectDomains)
+      .innerJoin(schema.domains, eq(schema.projectDomains.domainId, schema.domains.id))
+      .where(
+        and(
+          eq(schema.projectDomains.projectId, projectId),
+          eq(schema.projectDomains.primary, true),
+        ),
+      )
+      .limit(1);
+    await this.db
+      .update(schema.projects)
+      .set({ domain: primary?.fqdn ?? null, updatedAt: new Date() })
+      .where(eq(schema.projects.id, projectId));
+  }
+
+  /** Mark exactly one assigned domain primary (clears the others), then sync. */
+  private async setPrimaryInternal(projectId: string, domainId: string): Promise<void> {
+    await this.db
+      .update(schema.projectDomains)
+      .set({ primary: false })
+      .where(eq(schema.projectDomains.projectId, projectId));
+    await this.db
+      .update(schema.projectDomains)
+      .set({ primary: true })
+      .where(
+        and(
+          eq(schema.projectDomains.projectId, projectId),
+          eq(schema.projectDomains.domainId, domainId),
+        ),
+      );
+    await this.syncPrimaryDomainColumn(projectId);
+  }
+
+  /** Attach a domain to a project, creating the domain in the org if new. */
+  async assignDomain(projectId: string, input: AssignDomainInput): Promise<{ id: string }> {
+    await this.requireProject(projectId);
+    const fqdn = input.fqdn?.trim().toLowerCase();
+    if (!fqdn) throw new BadRequestException("fqdn is required");
+
+    const orgId = await this.defaultOrgId();
+    let [domain] = await this.db
+      .select({ id: schema.domains.id })
+      .from(schema.domains)
+      .where(and(eq(schema.domains.organizationId, orgId), eq(schema.domains.fqdn, fqdn)))
+      .limit(1);
+
+    if (!domain) {
+      [domain] = await this.db
+        .insert(schema.domains)
+        .values({ organizationId: orgId, fqdn })
+        .returning({ id: schema.domains.id });
+    }
+    if (!domain) throw new BadRequestException("failed to create domain");
+
+    // First domain on a project becomes primary automatically.
+    const existing = await this.db
+      .select({ domainId: schema.projectDomains.domainId })
+      .from(schema.projectDomains)
+      .where(eq(schema.projectDomains.projectId, projectId));
+    const makePrimary = input.primary === true || existing.length === 0;
+
+    await this.db
+      .insert(schema.projectDomains)
+      .values({ projectId, domainId: domain.id, primary: makePrimary })
+      .onConflictDoNothing();
+
+    if (makePrimary) await this.setPrimaryInternal(projectId, domain.id);
+    return { id: domain.id };
+  }
+
+  async setPrimaryDomain(projectId: string, domainId: string): Promise<void> {
+    await this.requireProject(projectId);
+    const [link] = await this.db
+      .select({ domainId: schema.projectDomains.domainId })
+      .from(schema.projectDomains)
+      .where(
+        and(
+          eq(schema.projectDomains.projectId, projectId),
+          eq(schema.projectDomains.domainId, domainId),
+        ),
+      )
+      .limit(1);
+    if (!link) throw new NotFoundException("domain is not assigned to this project");
+    await this.setPrimaryInternal(projectId, domainId);
+  }
+
+  /** Detach a domain from a project (the domain entity itself is kept). */
+  async unassignDomain(projectId: string, domainId: string): Promise<void> {
+    const deleted = await this.db
+      .delete(schema.projectDomains)
+      .where(
+        and(
+          eq(schema.projectDomains.projectId, projectId),
+          eq(schema.projectDomains.domainId, domainId),
+        ),
+      )
+      .returning({ domainId: schema.projectDomains.domainId });
+    if (deleted.length === 0) throw new NotFoundException("domain is not assigned to this project");
+
+    // If we removed the primary, promote the next remaining domain (if any).
+    const remaining = await this.db
+      .select({
+        domainId: schema.projectDomains.domainId,
+        primary: schema.projectDomains.primary,
+      })
+      .from(schema.projectDomains)
+      .where(eq(schema.projectDomains.projectId, projectId));
+    if (remaining.length > 0 && !remaining.some((r) => r.primary)) {
+      await this.setPrimaryInternal(projectId, remaining[0]!.domainId);
+    } else {
+      await this.syncPrimaryDomainColumn(projectId);
+    }
   }
 
   /** Create or update a connector instance for a project. */
