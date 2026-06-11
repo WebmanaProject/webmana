@@ -225,9 +225,10 @@ FX normalization, budgets/forecasts, profitability table, Stripe revenue
 connector, renewal calendar export.
 
 Delivered: Stripe revenue connector (`revenue.mrr` + `revenue.active_subscriptions`,
-in both repos); Finance now shows MRR + a per-project profitability table
-(annual revenue vs cost → margin) and MRR on the Portfolio Overview. Remaining:
-budgets/forecasts, FX normalization (multi-currency), renewal calendar export.
+in both repos); Finance shows MRR + a per-project profitability table (annual
+revenue vs cost → margin) and MRR on the Portfolio Overview; **budgets** (scope
+project/tag/org) with annualized target-vs-actual progress + overspend colour.
+Remaining: FX normalization (multi-currency), renewal calendar (iCal) export.
 
 ### M4 — Incidents + Alerting 2.0 + SMTP invites **[APP]**
 Incident lifecycle, routing/escalation, maintenance windows, status page 2.0,
