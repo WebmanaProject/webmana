@@ -302,6 +302,7 @@ interface UpcomingRenewal {
 interface FinanceLite {
   annualByCurrency: CurrencyTotal[];
   cloudByCurrency: CurrencyTotal[];
+  mrrByCurrency: CurrencyTotal[];
   upcomingRenewals: UpcomingRenewal[];
 }
 
@@ -372,8 +373,8 @@ function PortfolioOverview({ projects }: { projects: ProjectSummary[] }) {
           hint={`${counts.degraded} degraded · ${counts.down} down`}
           trend={counts.down > 0 ? "down" : counts.degraded > 0 ? "flat" : "up"}
         />
+        <StatTile label="MRR" value={fmtMoney(finance?.mrrByCurrency ?? [])} hint="monthly recurring revenue" trend={(finance?.mrrByCurrency?.length ?? 0) > 0 ? "up" : undefined} />
         <StatTile label="Annual renewals" value={fmtMoney(finance?.annualByCurrency ?? [])} hint="domains, per year" />
-        <StatTile label="Cloud (MTD)" value={fmtMoney(finance?.cloudByCurrency ?? [])} hint="month-to-date" />
       </div>
 
       <section className="card p-5">
