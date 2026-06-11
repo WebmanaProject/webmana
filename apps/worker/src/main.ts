@@ -12,6 +12,7 @@ import { decryptSecrets } from "@webmana/crypto";
 import { evaluateAlerts } from "./alerts.js";
 import { detectCostAnomalies } from "./cost-anomaly.js";
 import { generateInsights, insightsIntervalMs, readAiConfig } from "./insights.js";
+import { sendWeeklyDigest, digestIntervalMs } from "./digest.js";
 import { checkDomainExpiry } from "./domain-expiry.js";
 
 const connection = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379", {
@@ -200,6 +201,10 @@ const worker = new Worker(
       const n = await checkDomainExpiry(db, new Date());
       console.log(`[worker] domain-expiry emitted ${n} event(s)`);
     }
+    if (job.name === "digest") {
+      const n = await sendWeeklyDigest(db, new Date());
+      console.log(`[worker] weekly digest sent ${n} email(s)`);
+    }
   },
   { connection },
 );
@@ -236,6 +241,14 @@ worker.on("ready", async () => {
     {},
     { jobId: "domain-expiry-boot", removeOnComplete: true },
   );
+
+  // Weekly portfolio digest (logs always; emails when SMTP is configured).
+  await syncQueue.add(
+    "digest",
+    {},
+    { repeat: { every: digestIntervalMs() }, jobId: "digest" },
+  );
+  await syncQueue.add("digest", {}, { jobId: "digest-boot", removeOnComplete: true });
 
   // Scheduled AI insight generation (only when a provider key is configured).
   if (readAiConfig()) {
