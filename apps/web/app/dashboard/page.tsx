@@ -210,6 +210,8 @@ export default function DashboardPage() {
         </div>
       ) : loading ? (
         <p className="text-text-muted">Loading…</p>
+      ) : projects.length === 0 ? (
+        <OnboardingHero onStart={() => setShowAdd(true)} />
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
           {COLUMNS.map((col) => {
@@ -279,6 +281,42 @@ export default function DashboardPage() {
         />
       )}
     </main>
+  );
+}
+
+/** First-run welcome shown on an empty portfolio. */
+function OnboardingHero({ onStart }: { onStart: () => void }) {
+  const steps = [
+    { title: "Create a project", body: "Every site, app, or domain you own starts as a project on the board." },
+    { title: "Assign its domain(s)", body: "Attach one or more domains and record registrar, expiry, and renewal cost." },
+    { title: "Connect monitoring", body: "Add a keyless connector (SSL, DNS, uptime) — data flows in automatically." },
+  ];
+  return (
+    <div className="mx-auto max-w-2xl rounded-2xl border border-border bg-surface p-8 shadow-card">
+      <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-accent-strong">
+        Welcome to Webmana
+      </div>
+      <h2 className="text-xl font-semibold tracking-tight">Set up your portfolio in three steps</h2>
+      <p className="mt-1 text-sm text-text-muted">
+        Webmana keeps every domain and project you run in one control room. Let’s add your first one.
+      </p>
+      <ol className="mt-6 flex flex-col gap-3">
+        {steps.map((s, i) => (
+          <li key={s.title} className="flex gap-3">
+            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-accent/15 text-sm font-semibold text-accent-strong">
+              {i + 1}
+            </span>
+            <div>
+              <div className="text-sm font-medium">{s.title}</div>
+              <p className="text-sm text-text-muted">{s.body}</p>
+            </div>
+          </li>
+        ))}
+      </ol>
+      <button onClick={onStart} className="btn-accent mt-6">
+        + Create your first project
+      </button>
+    </div>
   );
 }
 
