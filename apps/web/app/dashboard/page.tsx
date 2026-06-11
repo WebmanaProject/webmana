@@ -412,10 +412,6 @@ function AddProjectModal({
   const [domain, setDomain] = useState("");
   const [status, setStatus] = useState<ProjectStatus>("idea");
   const [tags, setTags] = useState("");
-  const [purchaseCost, setPurchaseCost] = useState("");
-  const [renewalCost, setRenewalCost] = useState("");
-  const [currency, setCurrency] = useState("USD");
-  const [purchaseDate, setPurchaseDate] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -433,10 +429,6 @@ function AddProjectModal({
           domain,
           status,
           tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
-          purchaseCost: purchaseCost ? Number(purchaseCost) : null,
-          renewalCost: renewalCost ? Number(renewalCost) : null,
-          costCurrency: currency || null,
-          purchaseDate: purchaseDate || null,
         }),
       });
       if (res.status === 401) {
@@ -515,29 +507,10 @@ function AddProjectModal({
             </label>
           </div>
 
-          <details className="rounded-lg border border-border bg-bg-subtle/50 px-3 py-2 text-xs">
-            <summary className="cursor-pointer select-none font-medium text-text-muted">
-              Domain costs (optional)
-            </summary>
-            <div className="mt-3 grid grid-cols-2 gap-3">
-              <label className="font-medium text-text-muted">
-                Purchase cost
-                <input type="number" step="0.01" value={purchaseCost} onChange={(e) => setPurchaseCost(e.target.value)} placeholder="12.00" className="mt-1 w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm focus:border-accent" />
-              </label>
-              <label className="font-medium text-text-muted">
-                Renewal / yr
-                <input type="number" step="0.01" value={renewalCost} onChange={(e) => setRenewalCost(e.target.value)} placeholder="14.00" className="mt-1 w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm focus:border-accent" />
-              </label>
-              <label className="font-medium text-text-muted">
-                Currency
-                <input value={currency} onChange={(e) => setCurrency(e.target.value.toUpperCase())} placeholder="USD" maxLength={3} className="mt-1 w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm uppercase focus:border-accent" />
-              </label>
-              <label className="font-medium text-text-muted">
-                Purchase date
-                <input type="date" value={purchaseDate} onChange={(e) => setPurchaseDate(e.target.value)} className="mt-1 w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm focus:border-accent" />
-              </label>
-            </div>
-          </details>
+          <p className="text-xs text-text-muted">
+            Tip: assign domains and set their purchase / renewal costs from the project page after
+            creating it.
+          </p>
 
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="mt-2 flex justify-end gap-2">

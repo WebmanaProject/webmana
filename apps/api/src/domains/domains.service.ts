@@ -17,8 +17,10 @@ export interface DomainInput {
   autoRenew?: boolean;
   nameservers?: string[];
   locked?: boolean;
+  purchaseCost?: number | null;
   renewalCost?: number | null;
   costCurrency?: string | null;
+  purchaseDate?: string | null;
   notes?: string | null;
 }
 
@@ -31,8 +33,10 @@ export interface DomainView {
   autoRenew: boolean;
   nameservers: string[];
   locked: boolean;
+  purchaseCost: number | null;
   renewalCost: number | null;
   costCurrency: string | null;
+  purchaseDate: string | null;
   notes: string | null;
   projects: { id: string; name: string; primary: boolean }[];
 }
@@ -89,8 +93,10 @@ export class DomainsService {
       autoRenew: d.autoRenew,
       nameservers: (d.nameservers as string[]) ?? [],
       locked: d.locked,
+      purchaseCost: d.purchaseCost,
       renewalCost: d.renewalCost,
       costCurrency: d.costCurrency,
+      purchaseDate: d.purchaseDate,
       notes: d.notes,
       projects: links
         .filter((l) => l.domainId === d.id)
@@ -114,14 +120,13 @@ export class DomainsService {
         .filter(Boolean);
     }
     if (input.locked !== undefined) patch.locked = Boolean(input.locked);
-    if (input.renewalCost !== undefined) {
-      patch.renewalCost =
-        input.renewalCost == null || Number.isNaN(Number(input.renewalCost))
-          ? null
-          : Number(input.renewalCost);
-    }
+    const num = (v: number | null | undefined) =>
+      v == null || Number.isNaN(Number(v)) ? null : Number(v);
+    if (input.purchaseCost !== undefined) patch.purchaseCost = num(input.purchaseCost);
+    if (input.renewalCost !== undefined) patch.renewalCost = num(input.renewalCost);
     if (input.costCurrency !== undefined)
       patch.costCurrency = input.costCurrency?.trim().toUpperCase() || null;
+    if (input.purchaseDate !== undefined) patch.purchaseDate = input.purchaseDate?.trim() || null;
     if (input.notes !== undefined) patch.notes = input.notes?.trim() || null;
     return patch;
   }

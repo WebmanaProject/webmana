@@ -91,12 +91,6 @@ export const projects = pgTable(
     description: text("description"),
     /** Useful links: { repo, prod, staging, design, ... }. */
     links: jsonb("links").notNull().default(sql`'{}'::jsonb`),
-    /** Domain finance (manual): purchase price, annual renewal cost, purchase date. */
-    purchaseCost: doublePrecision("purchase_cost"),
-    renewalCost: doublePrecision("renewal_cost"),
-    /** ISO currency code for the cost fields, e.g. "USD", "PLN". */
-    costCurrency: text("cost_currency"),
-    purchaseDate: date("purchase_date"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -138,9 +132,13 @@ export const domains = pgTable(
     nameservers: jsonb("nameservers").notNull().default(sql`'[]'::jsonb`),
     /** Registry/transfer lock engaged. */
     locked: boolean("locked").notNull().default(false),
-    /** Annual renewal cost + ISO currency (manual). */
+    /** Finance (manual): one-time purchase price + annual renewal cost. */
+    purchaseCost: doublePrecision("purchase_cost"),
     renewalCost: doublePrecision("renewal_cost"),
+    /** ISO currency code for the cost fields, e.g. "USD", "PLN". */
     costCurrency: text("cost_currency"),
+    /** When the domain was first registered/bought. */
+    purchaseDate: date("purchase_date"),
     notes: text("notes"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),

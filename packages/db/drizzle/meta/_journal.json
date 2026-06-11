@@ -43,6 +43,13 @@
       "when": 1781028523417,
       "tag": "0005_daffy_nighthawk",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1781144102491,
+      "tag": "0006_fair_hammerhead",
+      "breakpoints": true
     }
   ]
 }

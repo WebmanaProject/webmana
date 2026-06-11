@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, asc, desc, eq, inArray, isNotNull } from "drizzle-orm";
+import { asc, desc, eq, inArray } from "drizzle-orm";
 import { schema, type Database } from "@webmana/db";
 import { DATABASE } from "../db/db.module.js";
 
@@ -106,31 +106,6 @@ export class FinanceService {
           });
         }
       }
-    }
-
-    // --- Project renewals (manual) ---
-    const projectRows = await this.db
-      .select({
-        id: schema.projects.id,
-        name: schema.projects.name,
-        renewalCost: schema.projects.renewalCost,
-        costCurrency: schema.projects.costCurrency,
-      })
-      .from(schema.projects)
-      .where(isNotNull(schema.projects.renewalCost));
-
-    for (const p of projectRows) {
-      if (p.renewalCost == null) continue;
-      const cur = p.costCurrency ?? "?";
-      this.addTo(annual, cur, p.renewalCost);
-      lines.push({
-        kind: "project",
-        label: p.name,
-        projectId: p.id,
-        amount: p.renewalCost,
-        currency: cur,
-        period: "renewal/yr",
-      });
     }
 
     // --- Cloud spend: latest aws_cost.month_to_date per project ---

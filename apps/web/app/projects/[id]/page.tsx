@@ -27,8 +27,10 @@ interface ProjectDomain {
   registrar: string | null;
   expiresAt: string | null;
   autoRenew: boolean;
+  purchaseCost: number | null;
   renewalCost: number | null;
   costCurrency: string | null;
+  purchaseDate: string | null;
 }
 
 interface ManagedConnector {
@@ -46,10 +48,6 @@ interface ManagedProject {
   status: ProjectStatus;
   description: string | null;
   links: Record<string, string>;
-  purchaseCost: number | null;
-  renewalCost: number | null;
-  costCurrency: string | null;
-  purchaseDate: string | null;
   tags: string[];
   domains: ProjectDomain[];
   connectors: ManagedConnector[];
@@ -392,49 +390,7 @@ function DomainsPanel({
       ) : (
         <ul className="mb-4 flex flex-col gap-2">
           {project.domains.map((d) => (
-            <li
-              key={d.id}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-bg-subtle px-3 py-2 text-sm"
-            >
-              <span className="flex items-center gap-2">
-                <span className="font-mono">{d.fqdn}</span>
-                {d.primary ? (
-                  <span className="badge bg-accent/15 text-accent-strong">primary</span>
-                ) : null}
-                {d.expiresAt && (
-                  <span className="text-xs text-text-muted">exp {d.expiresAt}</span>
-                )}
-              </span>
-              <span className="flex gap-2">
-                {!d.primary && (
-                  <button
-                    onClick={() =>
-                      run(() =>
-                        api(`/manage/projects/${project.id}/domains/${d.id}/primary`, {
-                          method: "PATCH",
-                        }),
-                      )
-                    }
-                    disabled={busy}
-                    className="rounded border border-border px-2 py-1 text-xs hover:border-accent disabled:opacity-50"
-                  >
-                    Make primary
-                  </button>
-                )}
-                <button
-                  onClick={() => {
-                    if (!confirm(`Detach ${d.fqdn} from this project?`)) return;
-                    void run(() =>
-                      api(`/manage/projects/${project.id}/domains/${d.id}`, { method: "DELETE" }),
-                    );
-                  }}
-                  disabled={busy}
-                  className="rounded border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50"
-                >
-                  Detach
-                </button>
-              </span>
-            </li>
+            <DomainRow key={d.id} projectId={project.id} domain={d} busy={busy} run={run} />
           ))}
         </ul>
       )}
@@ -466,6 +422,133 @@ function DomainsPanel({
   );
 }
 
+/** One assigned domain: summary row + expandable registry/cost editor. */
+function DomainRow({
+  projectId,
+  domain,
+  busy,
+  run,
+}: {
+  projectId: string;
+  domain: ProjectDomain;
+  busy: boolean;
+  run: (fn: () => Promise<unknown>) => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [registrar, setRegistrar] = useState(domain.registrar ?? "");
+  const [expiresAt, setExpiresAt] = useState(domain.expiresAt ?? "");
+  const [autoRenew, setAutoRenew] = useState(domain.autoRenew);
+  const [purchaseCost, setPurchaseCost] = useState(domain.purchaseCost?.toString() ?? "");
+  const [renewalCost, setRenewalCost] = useState(domain.renewalCost?.toString() ?? "");
+  const [currency, setCurrency] = useState(domain.costCurrency ?? "");
+  const [purchaseDate, setPurchaseDate] = useState(domain.purchaseDate ?? "");
+
+  const save = () =>
+    run(() =>
+      api(`/domains/${domain.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          registrar: registrar || null,
+          expiresAt: expiresAt || null,
+          autoRenew,
+          purchaseCost: purchaseCost ? Number(purchaseCost) : null,
+          renewalCost: renewalCost ? Number(renewalCost) : null,
+          costCurrency: currency || null,
+          purchaseDate: purchaseDate || null,
+        }),
+      }).then(() => setOpen(false)),
+    );
+
+  return (
+    <li className="rounded-lg border border-border bg-bg-subtle px-3 py-2 text-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="flex flex-wrap items-center gap-2">
+          <span className="font-mono">{domain.fqdn}</span>
+          {domain.primary && <span className="badge bg-accent/15 text-accent-strong">primary</span>}
+          {domain.expiresAt && <span className="text-xs text-text-muted">exp {domain.expiresAt}</span>}
+          {domain.renewalCost != null && (
+            <span className="text-xs text-text-muted">
+              ↻ {domain.renewalCost} {domain.costCurrency ?? ""}/yr
+            </span>
+          )}
+        </span>
+        <span className="flex gap-2">
+          <button
+            onClick={() => setOpen((v) => !v)}
+            disabled={busy}
+            className="rounded border border-border px-2 py-1 text-xs hover:border-accent disabled:opacity-50"
+          >
+            {open ? "Close" : "Edit"}
+          </button>
+          {!domain.primary && (
+            <button
+              onClick={() =>
+                run(() =>
+                  api(`/manage/projects/${projectId}/domains/${domain.id}/primary`, { method: "PATCH" }),
+                )
+              }
+              disabled={busy}
+              className="rounded border border-border px-2 py-1 text-xs hover:border-accent disabled:opacity-50"
+            >
+              Make primary
+            </button>
+          )}
+          <button
+            onClick={() => {
+              if (!confirm(`Detach ${domain.fqdn} from this project?`)) return;
+              void run(() =>
+                api(`/manage/projects/${projectId}/domains/${domain.id}`, { method: "DELETE" }),
+              );
+            }}
+            disabled={busy}
+            className="rounded border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50"
+          >
+            Detach
+          </button>
+        </span>
+      </div>
+
+      {open && (
+        <div className="mt-3 border-t border-border pt-3">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <label className="text-xs font-medium text-text-muted">
+              Registrar
+              <input className="input mt-1 w-full" value={registrar} onChange={(e) => setRegistrar(e.target.value)} placeholder="Cloudflare, GoDaddy…" />
+            </label>
+            <label className="text-xs font-medium text-text-muted">
+              Expiry date
+              <input className="input mt-1 w-full" type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} />
+            </label>
+            <label className="flex items-center gap-2 self-end pb-2 text-xs font-medium text-text-muted">
+              <input type="checkbox" checked={autoRenew} onChange={(e) => setAutoRenew(e.target.checked)} />
+              Auto-renew
+            </label>
+            <label className="text-xs font-medium text-text-muted">
+              Purchase cost
+              <input className="input mt-1 w-full" type="number" step="0.01" value={purchaseCost} onChange={(e) => setPurchaseCost(e.target.value)} placeholder="12.00" />
+            </label>
+            <label className="text-xs font-medium text-text-muted">
+              Renewal / yr
+              <input className="input mt-1 w-full" type="number" step="0.01" value={renewalCost} onChange={(e) => setRenewalCost(e.target.value)} placeholder="14.00" />
+            </label>
+            <label className="text-xs font-medium text-text-muted">
+              Currency
+              <input className="input mt-1 w-full uppercase" maxLength={3} value={currency} onChange={(e) => setCurrency(e.target.value.toUpperCase())} placeholder="USD" />
+            </label>
+            <label className="text-xs font-medium text-text-muted">
+              Purchase date
+              <input className="input mt-1 w-full" type="date" value={purchaseDate} onChange={(e) => setPurchaseDate(e.target.value)} />
+            </label>
+          </div>
+          <div className="mt-3">
+            <button onClick={save} disabled={busy} className="btn-accent">Save domain</button>
+          </div>
+        </div>
+      )}
+    </li>
+  );
+}
+
 /* --------------------------------------------------------- Edit details ---- */
 
 function EditDetails({
@@ -480,10 +563,6 @@ function EditDetails({
   const [name, setName] = useState(project.name);
   const [description, setDescription] = useState(project.description ?? "");
   const [tags, setTags] = useState(project.tags.join(", "));
-  const [purchaseCost, setPurchaseCost] = useState(project.purchaseCost?.toString() ?? "");
-  const [renewalCost, setRenewalCost] = useState(project.renewalCost?.toString() ?? "");
-  const [currency, setCurrency] = useState(project.costCurrency ?? "");
-  const [purchaseDate, setPurchaseDate] = useState(project.purchaseDate ?? "");
 
   const save = () =>
     run(() =>
@@ -493,10 +572,6 @@ function EditDetails({
           name,
           description,
           tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
-          purchaseCost: purchaseCost ? Number(purchaseCost) : null,
-          renewalCost: renewalCost ? Number(renewalCost) : null,
-          costCurrency: currency || null,
-          purchaseDate: purchaseDate || null,
         }),
       }),
     );
@@ -531,23 +606,10 @@ function EditDetails({
             placeholder="What is this project?"
           />
         </label>
-        <label className="text-xs font-medium text-text-muted">
-          Purchase cost
-          <input className="input mt-1 w-full" type="number" step="0.01" value={purchaseCost} onChange={(e) => setPurchaseCost(e.target.value)} />
-        </label>
-        <label className="text-xs font-medium text-text-muted">
-          Renewal / yr
-          <input className="input mt-1 w-full" type="number" step="0.01" value={renewalCost} onChange={(e) => setRenewalCost(e.target.value)} />
-        </label>
-        <label className="text-xs font-medium text-text-muted">
-          Currency
-          <input className="input mt-1 w-full uppercase" maxLength={3} value={currency} onChange={(e) => setCurrency(e.target.value.toUpperCase())} placeholder="USD" />
-        </label>
-        <label className="text-xs font-medium text-text-muted">
-          Purchase date
-          <input className="input mt-1 w-full" type="date" value={purchaseDate} onChange={(e) => setPurchaseDate(e.target.value)} />
-        </label>
       </div>
+      <p className="mt-3 text-xs text-text-muted">
+        Costs (purchase &amp; renewal) live on each domain — edit them in the Domains section above.
+      </p>
       <div className="mt-4 flex gap-2">
         <button onClick={save} disabled={busy} className="btn-accent">Save changes</button>
         <button onClick={remove} disabled={busy} className="rounded-lg border border-red-200 px-3 py-2 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50">

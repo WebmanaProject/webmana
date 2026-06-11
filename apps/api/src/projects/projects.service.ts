@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { desc, inArray } from "drizzle-orm";
+import { desc, eq, inArray } from "drizzle-orm";
 import { schema, type Database } from "@webmana/db";
 import { computeHealthBand, type HealthBand } from "@webmana/contracts";
 import { DATABASE } from "../db/db.module.js";
@@ -63,8 +63,6 @@ export class ProjectsService {
         status: schema.projects.status,
         description: schema.projects.description,
         links: schema.projects.links,
-        renewalCost: schema.projects.renewalCost,
-        costCurrency: schema.projects.costCurrency,
       })
       .from(schema.projects)
       .orderBy(schema.projects.name);
@@ -72,7 +70,7 @@ export class ProjectsService {
     const ids = projectRows.map((p) => p.id);
     if (ids.length === 0) return [];
 
-    const [tagRows, connectorRows, metricRows, eventRows] = await Promise.all([
+    const [tagRows, connectorRows, metricRows, eventRows, domainCostRows] = await Promise.all([
       this.db
         .select({
           projectId: schema.projectTags.projectId,
@@ -117,6 +115,17 @@ export class ProjectsService {
         .where(inArray(schema.events.projectId, ids))
         .orderBy(desc(schema.events.occurredAt))
         .limit(200),
+      // Per-project domain costs (renewal cost now lives on the domain).
+      this.db
+        .select({
+          projectId: schema.projectDomains.projectId,
+          primary: schema.projectDomains.primary,
+          renewalCost: schema.domains.renewalCost,
+          costCurrency: schema.domains.costCurrency,
+        })
+        .from(schema.projectDomains)
+        .innerJoin(schema.domains, eq(schema.projectDomains.domainId, schema.domains.id))
+        .where(inArray(schema.projectDomains.projectId, ids)),
     ]);
 
     const healthCutoff = Date.now() - HEALTH_WINDOW_MS;
@@ -154,6 +163,22 @@ export class ProjectsService {
         });
       }
 
+      // Annual renewal = sum of this project's domains' renewal costs; the
+      // display currency follows the primary domain (else the first with cost).
+      const projectDomainCosts = domainCostRows.filter((d) => d.projectId === project.id);
+      let renewalCost: number | null = null;
+      let costCurrency: string | null = null;
+      for (const d of projectDomainCosts) {
+        if (d.renewalCost != null) renewalCost = (renewalCost ?? 0) + d.renewalCost;
+      }
+      if (renewalCost != null) {
+        renewalCost = Math.round(renewalCost * 100) / 100;
+        costCurrency =
+          projectDomainCosts.find((d) => d.primary && d.costCurrency)?.costCurrency ??
+          projectDomainCosts.find((d) => d.costCurrency)?.costCurrency ??
+          null;
+      }
+
       const projectEvents = eventRows.filter((e) => e.projectId === project.id);
 
       let recentCriticalCount = 0;
@@ -179,6 +204,8 @@ export class ProjectsService {
 
       return {
         ...project,
+        renewalCost,
+        costCurrency,
         links: (project.links as Record<string, string>) ?? {},
         tags,
         health,
