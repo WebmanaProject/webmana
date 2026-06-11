@@ -165,8 +165,8 @@ export default function DomainsPage() {
         ) : domains.length === 0 ? (
           <p className="text-text-muted">No domains yet — add one above.</p>
         ) : (
-          <div className="overflow-hidden rounded-xl border border-border shadow-card">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto rounded-2xl border border-border shadow-card">
+            <table className="w-full min-w-[44rem] text-sm">
               <thead className="bg-bg-subtle text-left text-xs uppercase tracking-wide text-text-muted">
                 <tr>
                   <th className="px-4 py-2.5">Domain</th>

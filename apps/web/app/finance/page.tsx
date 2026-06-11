@@ -131,8 +131,8 @@ export default function FinancePage() {
               {report.upcomingRenewals.length === 0 ? (
                 <p className="text-sm text-text-muted">Nothing due in the next 90 days.</p>
               ) : (
-                <div className="overflow-hidden rounded-xl border border-border shadow-card">
-                  <table className="w-full text-sm">
+                <div className="overflow-x-auto rounded-2xl border border-border shadow-card">
+                  <table className="w-full min-w-[34rem] text-sm">
                     <thead className="bg-bg-subtle text-left text-xs uppercase tracking-wide text-text-muted">
                       <tr>
                         <th className="px-4 py-2.5">Domain</th>
@@ -172,8 +172,8 @@ export default function FinancePage() {
               {report.lines.length === 0 ? (
                 <p className="text-sm text-text-muted">No cost lines yet. Add renewal costs to domains or projects.</p>
               ) : (
-                <div className="overflow-hidden rounded-xl border border-border shadow-card">
-                  <table className="w-full text-sm">
+                <div className="overflow-x-auto rounded-2xl border border-border shadow-card">
+                  <table className="w-full min-w-[34rem] text-sm">
                     <thead className="bg-bg-subtle text-left text-xs uppercase tracking-wide text-text-muted">
                       <tr>
                         <th className="px-4 py-2.5">Type</th>

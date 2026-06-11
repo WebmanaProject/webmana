@@ -9,6 +9,28 @@ const config: Config = {
   content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}"],
   theme: {
     extend: {
+      fontFamily: {
+        sans: [
+          "Inter var",
+          "Inter",
+          "ui-sans-serif",
+          "system-ui",
+          "-apple-system",
+          "Segoe UI",
+          "Roboto",
+          "Helvetica Neue",
+          "Arial",
+          "sans-serif",
+        ],
+        mono: [
+          "ui-monospace",
+          "SFMono-Regular",
+          "Menlo",
+          "Consolas",
+          "Liberation Mono",
+          "monospace",
+        ],
+      },
       colors: {
         accent: {
           DEFAULT: withVar("--accent"),
@@ -34,6 +56,11 @@ const config: Config = {
         card: "0 1px 2px rgb(11 31 26 / 0.04), 0 4px 16px -6px rgb(11 31 26 / 0.10)",
         "card-hover": "0 2px 4px rgb(11 31 26 / 0.06), 0 12px 28px -8px rgb(11 31 26 / 0.18)",
         glow: "0 0 0 1px rgb(var(--accent) / 0.30), 0 8px 30px -8px rgb(var(--accent) / 0.35)",
+        "inner-top": "inset 0 1px 0 0 rgb(255 255 255 / 0.04)",
+      },
+      backgroundImage: {
+        "accent-gradient":
+          "linear-gradient(135deg, rgb(var(--accent)) 0%, rgb(var(--accent-strong)) 100%)",
       },
       keyframes: {
         "fade-in": {
