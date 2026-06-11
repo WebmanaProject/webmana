@@ -105,6 +105,11 @@ export interface UpdateBudgetInput {
   currency?: string;
 }
 
+export interface UpsertFxRateInput {
+  currency: string;
+  rateToBase: number;
+}
+
 export interface CreateMaintenanceInput {
   /** Target project; omit/null suppresses alerts org-wide. */
   projectId?: string | null;
@@ -884,5 +889,60 @@ export class ManageService {
       .where(and(eq(schema.maintenanceWindows.id, id), eq(schema.maintenanceWindows.organizationId, orgId)))
       .returning({ id: schema.maintenanceWindows.id });
     if (deleted.length === 0) throw new NotFoundException("maintenance window not found");
+  }
+
+  /* ------------------------------------------------------------ FX rates --- */
+
+  async getFxSettings() {
+    const orgId = await this.defaultOrgId();
+    const [org] = await this.db
+      .select({ baseCurrency: schema.organizations.baseCurrency })
+      .from(schema.organizations)
+      .where(eq(schema.organizations.id, orgId))
+      .limit(1);
+    const rates = await this.db
+      .select({ currency: schema.fxRates.currency, rateToBase: schema.fxRates.rateToBase })
+      .from(schema.fxRates)
+      .where(eq(schema.fxRates.organizationId, orgId))
+      .orderBy(schema.fxRates.currency);
+    return { baseCurrency: org?.baseCurrency ?? "USD", rates };
+  }
+
+  async setBaseCurrency(code: string): Promise<void> {
+    const cur = code?.trim().toUpperCase();
+    if (!cur || cur.length > 8) throw new BadRequestException("invalid currency code");
+    const orgId = await this.defaultOrgId();
+    await this.db
+      .update(schema.organizations)
+      .set({ baseCurrency: cur, updatedAt: new Date() })
+      .where(eq(schema.organizations.id, orgId));
+  }
+
+  async upsertFxRate(input: UpsertFxRateInput): Promise<void> {
+    const currency = input.currency?.trim().toUpperCase();
+    if (!currency) throw new BadRequestException("currency is required");
+    if (typeof input.rateToBase !== "number" || !(input.rateToBase > 0)) {
+      throw new BadRequestException("rateToBase must be a positive number");
+    }
+    const orgId = await this.defaultOrgId();
+    await this.db
+      .insert(schema.fxRates)
+      .values({ organizationId: orgId, currency, rateToBase: input.rateToBase })
+      .onConflictDoUpdate({
+        target: [schema.fxRates.organizationId, schema.fxRates.currency],
+        set: { rateToBase: input.rateToBase, updatedAt: new Date() },
+      });
+  }
+
+  async deleteFxRate(currency: string): Promise<void> {
+    const orgId = await this.defaultOrgId();
+    await this.db
+      .delete(schema.fxRates)
+      .where(
+        and(
+          eq(schema.fxRates.organizationId, orgId),
+          eq(schema.fxRates.currency, currency.trim().toUpperCase()),
+        ),
+      );
   }
 }

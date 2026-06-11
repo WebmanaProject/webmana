@@ -50,9 +50,28 @@ export const organizations = pgTable("organizations", {
   id: id(),
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
+  /** Reporting currency totals are normalized into (ISO code, e.g. "USD"). */
+  baseCurrency: text("base_currency").notNull().default("USD"),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });
+
+/** Manual FX rates: 1 unit of `currency` = `rateToBase` units of the org base. */
+export const fxRates = pgTable(
+  "fx_rates",
+  {
+    id: id(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    /** ISO code of the foreign currency, e.g. "PLN". */
+    currency: text("currency").notNull(),
+    /** How many base-currency units one `currency` unit is worth. */
+    rateToBase: doublePrecision("rate_to_base").notNull(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [uniqueIndex("fx_rates_org_currency_idx").on(t.organizationId, t.currency)],
+);
 
 export const users = pgTable("users", {
   id: id(),

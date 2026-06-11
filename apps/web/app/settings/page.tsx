@@ -42,6 +42,10 @@ export default function SettingsPage() {
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [tokens, setTokens] = useState<McpToken[]>([]);
   const [channels, setChannels] = useState<AlertChannel[]>([]);
+  const [fx, setFx] = useState<{ baseCurrency: string; rates: { currency: string; rateToBase: number }[] }>({ baseCurrency: "USD", rates: [] });
+  const [baseCcy, setBaseCcy] = useState("USD");
+  const [rateCcy, setRateCcy] = useState("");
+  const [rateVal, setRateVal] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [forbidden, setForbidden] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -75,6 +79,12 @@ export default function SettingsPage() {
     if (iRes.ok) setInvitations((await iRes.json()) as Invitation[]);
     if (tRes.ok) setTokens((await tRes.json()) as McpToken[]);
     if (cRes.ok) setChannels((await cRes.json()) as AlertChannel[]);
+    const fxRes = await authFetch("/api/manage/fx");
+    if (fxRes.ok) {
+      const f = (await fxRes.json()) as { baseCurrency: string; rates: { currency: string; rateToBase: number }[] };
+      setFx(f);
+      setBaseCcy(f.baseCurrency);
+    }
   }, []);
 
   useEffect(() => {
@@ -136,6 +146,28 @@ export default function SettingsPage() {
       if (!res.ok) throw new Error(`channel failed (${res.status})`);
       setChTarget("");
       setChTag("");
+    });
+
+  const saveBaseCurrency = () =>
+    run(async () => {
+      const res = await authFetch("/api/manage/fx", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ baseCurrency: baseCcy }),
+      });
+      if (!res.ok) throw new Error(`base currency failed (${res.status})`);
+    });
+
+  const upsertRate = () =>
+    run(async () => {
+      const res = await authFetch("/api/manage/fx/rates", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ currency: rateCcy, rateToBase: Number(rateVal) }),
+      });
+      if (!res.ok) throw new Error(`rate failed (${res.status})`);
+      setRateCcy("");
+      setRateVal("");
     });
 
   if (authLoading) return <main className="mx-auto max-w-3xl px-6 py-12 text-text-muted">Loading…</main>;
@@ -217,6 +249,43 @@ export default function SettingsPage() {
             ))}
           </ul>
         )}
+      </section>
+
+      {/* Currency & FX */}
+      <section className="mb-8 rounded-2xl border border-border bg-surface p-6 shadow-sm">
+        <h2 className="mb-1 text-lg font-semibold">Currency &amp; FX</h2>
+        <p className="mb-4 text-sm text-text-muted">Finance totals are normalized into your base currency using these manual rates.</p>
+        <div className="mb-4 flex flex-wrap items-end gap-2">
+          <label className="text-xs font-medium text-text-muted">
+            Base currency
+            <input value={baseCcy} onChange={(e) => setBaseCcy(e.target.value.toUpperCase())} maxLength={8} className="mt-1 block w-28 rounded-lg border border-border bg-bg px-3 py-2 text-sm uppercase" />
+          </label>
+          <button onClick={saveBaseCurrency} disabled={busy || !baseCcy.trim()} className="rounded-lg border border-border px-3 py-2 text-sm hover:border-accent disabled:opacity-50">Save</button>
+        </div>
+        {fx.rates.length > 0 && (
+          <ul className="mb-4 flex flex-col gap-1.5">
+            {fx.rates.map((r) => (
+              <li key={r.currency} className="flex items-center justify-between rounded-lg border border-border bg-bg-subtle px-3 py-2 text-sm">
+                <span className="tabular-nums">1 {r.currency} = {r.rateToBase} {fx.baseCurrency}</span>
+                <button
+                  onClick={() => run(() => authFetch(`/api/manage/fx/rates/${r.currency}`, { method: "DELETE" }).then((x) => { if (!x.ok) throw new Error("delete failed"); }))}
+                  className="rounded border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+                >Delete</button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="text-xs font-medium text-text-muted">
+            Currency
+            <input value={rateCcy} onChange={(e) => setRateCcy(e.target.value.toUpperCase())} maxLength={8} placeholder="PLN" className="mt-1 block w-24 rounded-lg border border-border bg-bg px-3 py-2 text-sm uppercase" />
+          </label>
+          <label className="text-xs font-medium text-text-muted">
+            1 unit = ? {fx.baseCurrency}
+            <input value={rateVal} onChange={(e) => setRateVal(e.target.value)} type="number" step="0.0001" placeholder="0.25" className="mt-1 block w-28 rounded-lg border border-border bg-bg px-3 py-2 text-sm" />
+          </label>
+          <button onClick={upsertRate} disabled={busy || !rateCcy.trim() || !(Number(rateVal) > 0)} className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-ink disabled:opacity-50">Set rate</button>
+        </div>
       </section>
 
       {/* Alert channels */}

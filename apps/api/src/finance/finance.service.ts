@@ -78,6 +78,20 @@ export interface FinanceReport {
   profitability: ProjectProfit[];
   /** Budgets with target vs actual (most-over first). */
   budgets: BudgetStatus[];
+  /** Portfolio totals normalized into the org's base currency. */
+  base: {
+    currency: string;
+    /** Monthly recurring revenue, base currency. */
+    mrr: number;
+    /** Annual domain renewals, base currency. */
+    annualRenewals: number;
+    /** Latest cloud month-to-date, base currency. */
+    cloudMonthly: number;
+    /** Monthly net: mrr − renewals/12 − cloud. */
+    netMonthly: number;
+    /** True if some amounts were dropped for want of an FX rate. */
+    partial: boolean;
+  };
   /** Flat list of every cost line, for the breakdown table. */
   lines: CostLine[];
 }
@@ -303,7 +317,7 @@ export class FinanceService {
       Math.round(((domainCostByProject.get(pid)?.amount ?? 0) + (cloudByProject.get(pid)?.amount ?? 0)) * 100) / 100;
 
     const [org] = await this.db
-      .select({ id: schema.organizations.id })
+      .select({ id: schema.organizations.id, baseCurrency: schema.organizations.baseCurrency })
       .from(schema.organizations)
       .orderBy(asc(schema.organizations.createdAt))
       .limit(1);
@@ -362,6 +376,38 @@ export class FinanceService {
       budgets.sort((a, b) => b.pctUsed - a.pctUsed);
     }
 
+    // --- Base-currency normalization (manual FX rates) ---
+    const baseCurrency = org?.baseCurrency ?? "USD";
+    const rateRows = org
+      ? await this.db
+          .select({ currency: schema.fxRates.currency, rateToBase: schema.fxRates.rateToBase })
+          .from(schema.fxRates)
+          .where(eq(schema.fxRates.organizationId, org.id))
+      : [];
+    const rates = new Map(rateRows.map((r) => [r.currency, r.rateToBase]));
+    let basePartial = false;
+    /** Convert a per-currency map into the base currency; flags dropped amounts. */
+    const sumInBase = (m: Map<string, CurrencyTotal>): number => {
+      let total = 0;
+      for (const { currency, total: amt } of m.values()) {
+        if (currency === baseCurrency) total += amt;
+        else if (rates.has(currency)) total += amt * rates.get(currency)!;
+        else basePartial = true; // no rate → cannot convert
+      }
+      return Math.round(total * 100) / 100;
+    };
+    const mrrBase = sumInBase(mrr);
+    const annualRenewalsBase = sumInBase(annual);
+    const cloudMonthlyBase = sumInBase(cloud);
+    const base = {
+      currency: baseCurrency,
+      mrr: mrrBase,
+      annualRenewals: annualRenewalsBase,
+      cloudMonthly: cloudMonthlyBase,
+      netMonthly: Math.round((mrrBase - annualRenewalsBase / 12 - cloudMonthlyBase) * 100) / 100,
+      partial: basePartial,
+    };
+
     upcomingRenewals.sort((a, b) => a.daysUntil - b.daysUntil);
 
     return {
@@ -372,6 +418,7 @@ export class FinanceService {
       upcomingRenewals,
       profitability,
       budgets,
+      base,
       lines: lines.sort((a, b) => b.amount - a.amount),
     };
   }

@@ -22,6 +22,7 @@ import {
   type CreateBudgetInput,
   type UpdateBudgetInput,
   type CreateMaintenanceInput,
+  type UpsertFxRateInput,
 } from "./manage.service.js";
 import { AuthGuard } from "../auth/auth.guard.js";
 import { RolesGuard, Roles } from "../auth/roles.guard.js";
@@ -229,5 +230,31 @@ export class ManageController {
   @HttpCode(200)
   deleteMaintenance(@Param("id") id: string) {
     return this.manage.deleteMaintenanceWindow(id).then(() => ({ ok: true }));
+  }
+
+  /* ------------------------------------------------------------ FX rates --- */
+
+  @Get("fx")
+  getFx() {
+    return this.manage.getFxSettings();
+  }
+
+  @Patch("fx")
+  @Roles("editor")
+  setBaseCurrency(@Body() body: { baseCurrency: string }) {
+    return this.manage.setBaseCurrency(body?.baseCurrency).then(() => ({ ok: true }));
+  }
+
+  @Post("fx/rates")
+  @Roles("editor")
+  upsertFxRate(@Body() body: UpsertFxRateInput) {
+    return this.manage.upsertFxRate(body).then(() => ({ ok: true }));
+  }
+
+  @Delete("fx/rates/:currency")
+  @Roles("editor")
+  @HttpCode(200)
+  deleteFxRate(@Param("currency") currency: string) {
+    return this.manage.deleteFxRate(currency).then(() => ({ ok: true }));
   }
 }

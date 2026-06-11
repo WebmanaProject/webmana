@@ -53,6 +53,14 @@ interface FinanceReport {
   upcomingRenewals: UpcomingRenewal[];
   profitability: ProjectProfit[];
   budgets: BudgetStatus[];
+  base: {
+    currency: string;
+    mrr: number;
+    annualRenewals: number;
+    cloudMonthly: number;
+    netMonthly: number;
+    partial: boolean;
+  };
   lines: CostLine[];
 }
 
@@ -129,6 +137,22 @@ export default function FinancePage() {
           <p className="text-text-muted">No data.</p>
         ) : (
           <>
+            {/* Net banner (base currency) */}
+            <div className="mb-6 flex flex-wrap items-baseline justify-between gap-3 rounded-2xl border border-border bg-surface p-5 shadow-card">
+              <div>
+                <div className="text-xs font-medium uppercase tracking-wide text-text-muted">
+                  Net / month ({report.base.currency})
+                </div>
+                <div className={`mt-1 text-3xl font-semibold tabular-nums ${report.base.netMonthly >= 0 ? "text-accent-strong" : "text-red-600"}`}>
+                  {report.base.netMonthly >= 0 ? "+" : ""}{fmt(report.base.netMonthly)} {report.base.currency}
+                </div>
+              </div>
+              <div className="text-sm text-text-muted tabular-nums">
+                MRR {fmt(report.base.mrr)} − renewals {fmt(report.base.annualRenewals / 12)}/mo − cloud {fmt(report.base.cloudMonthly)}
+                {report.base.partial && <span className="ml-2 text-amber-600">· some currencies missing an FX rate</span>}
+              </div>
+            </div>
+
             {/* Summary cards */}
             <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <div className="card p-5">
