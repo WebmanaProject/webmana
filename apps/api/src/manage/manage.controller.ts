@@ -17,6 +17,8 @@ import {
   type CreateAlertRuleInput,
   type CreateAlertChannelInput,
   type AssignDomainInput,
+  type CreateNoteInput,
+  type UpdateNoteInput,
 } from "./manage.service.js";
 import { AuthGuard } from "../auth/auth.guard.js";
 import { RolesGuard, Roles } from "../auth/roles.guard.js";
@@ -83,6 +85,36 @@ export class ManageController {
   @HttpCode(200)
   unassignDomain(@Param("id") id: string, @Param("domainId") domainId: string) {
     return this.manage.unassignDomain(id, domainId).then(() => ({ ok: true }));
+  }
+
+  /* -------------------------------------------------------------- Notes ---- */
+
+  @Get("projects/:id/notes")
+  listNotes(@Param("id") id: string) {
+    return this.manage.listNotes(id);
+  }
+
+  @Post("projects/:id/notes")
+  @Roles("editor")
+  addNote(@Param("id") id: string, @Body() body: CreateNoteInput) {
+    return this.manage.addNote(id, body);
+  }
+
+  @Patch("projects/:id/notes/:noteId")
+  @Roles("editor")
+  updateNote(
+    @Param("id") id: string,
+    @Param("noteId") noteId: string,
+    @Body() body: UpdateNoteInput,
+  ) {
+    return this.manage.updateNote(id, noteId, body).then(() => ({ ok: true }));
+  }
+
+  @Delete("projects/:id/notes/:noteId")
+  @Roles("editor")
+  @HttpCode(200)
+  deleteNote(@Param("id") id: string, @Param("noteId") noteId: string) {
+    return this.manage.deleteNote(id, noteId).then(() => ({ ok: true }));
   }
 
   @Post("projects/:id/connectors")

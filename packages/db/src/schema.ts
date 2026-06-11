@@ -184,6 +184,24 @@ export const projectInsights = pgTable(
   (t) => [index("project_insights_project_time_idx").on(t.projectId, t.generatedAt)],
 );
 
+/** Free-form notes and checklist items attached to a project. */
+export const projectNotes = pgTable(
+  "project_notes",
+  {
+    id: id(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    /** Note / task text (plain text or simple markdown). */
+    body: text("body").notNull(),
+    /** Checklist state. A task that is checked off; notes default to false. */
+    done: boolean("done").notNull().default(false),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("project_notes_project_idx").on(t.projectId, t.createdAt)],
+);
+
 /* ----------------------------------------------------------- Connectors ---- */
 
 export const connectorInstances = pgTable(

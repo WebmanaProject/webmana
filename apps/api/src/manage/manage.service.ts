@@ -46,6 +46,17 @@ export interface AssignDomainInput {
   primary?: boolean;
 }
 
+export interface CreateNoteInput {
+  body: string;
+  /** When true the item is a checklist task (defaults to a plain note). */
+  done?: boolean;
+}
+
+export interface UpdateNoteInput {
+  body?: string;
+  done?: boolean;
+}
+
 export interface UpsertConnectorInput {
   connectorId: string;
   config?: Record<string, unknown>;
@@ -447,6 +458,57 @@ export class ManageService {
     } else {
       await this.syncPrimaryDomainColumn(projectId);
     }
+  }
+
+  /* ------------------------------------------------------------- Notes ----- */
+
+  async listNotes(projectId: string) {
+    return this.db
+      .select({
+        id: schema.projectNotes.id,
+        body: schema.projectNotes.body,
+        done: schema.projectNotes.done,
+        createdAt: schema.projectNotes.createdAt,
+      })
+      .from(schema.projectNotes)
+      .where(eq(schema.projectNotes.projectId, projectId))
+      .orderBy(schema.projectNotes.createdAt);
+  }
+
+  async addNote(projectId: string, input: CreateNoteInput): Promise<{ id: string }> {
+    await this.requireProject(projectId);
+    const body = input.body?.trim();
+    if (!body) throw new BadRequestException("note body is required");
+    const [created] = await this.db
+      .insert(schema.projectNotes)
+      .values({ projectId, body, done: input.done ?? false })
+      .returning({ id: schema.projectNotes.id });
+    if (!created) throw new BadRequestException("failed to create note");
+    return { id: created.id };
+  }
+
+  async updateNote(projectId: string, noteId: string, input: UpdateNoteInput): Promise<void> {
+    const patch: Record<string, unknown> = { updatedAt: new Date() };
+    if (input.body !== undefined) {
+      const body = input.body.trim();
+      if (!body) throw new BadRequestException("note body cannot be empty");
+      patch.body = body;
+    }
+    if (input.done !== undefined) patch.done = Boolean(input.done);
+    const updated = await this.db
+      .update(schema.projectNotes)
+      .set(patch)
+      .where(and(eq(schema.projectNotes.id, noteId), eq(schema.projectNotes.projectId, projectId)))
+      .returning({ id: schema.projectNotes.id });
+    if (updated.length === 0) throw new NotFoundException("note not found");
+  }
+
+  async deleteNote(projectId: string, noteId: string): Promise<void> {
+    const deleted = await this.db
+      .delete(schema.projectNotes)
+      .where(and(eq(schema.projectNotes.id, noteId), eq(schema.projectNotes.projectId, projectId)))
+      .returning({ id: schema.projectNotes.id });
+    if (deleted.length === 0) throw new NotFoundException("note not found");
   }
 
   /** Create or update a connector instance for a project. */

@@ -102,6 +102,13 @@ interface AlertRule {
   enabled: boolean;
 }
 
+interface Note {
+  id: string;
+  body: string;
+  done: boolean;
+  createdAt: string;
+}
+
 const OPERATOR_LABELS: Record<string, string> = { lt: "<", lte: "≤", gt: ">", gte: "≥", eq: "=" };
 
 const HEALTH_META: Record<string, { label: string; cls: string }> = {
@@ -151,6 +158,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [sla, setSla] = useState<SlaRow | null>(null);
   const [insight, setInsight] = useState<string | null>(null);
   const [rules, setRules] = useState<AlertRule[]>([]);
+  const [notes, setNotes] = useState<Note[]>([]);
   const [history, setHistory] = useState<MetricSeries[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -165,7 +173,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     if (!id) return;
     setError(null);
     try {
-      const [managed, cat, doms, livRes, slaRes, insRes, ruleRes, histRes] = await Promise.all([
+      const [managed, cat, doms, livRes, slaRes, insRes, ruleRes, histRes, noteRes] = await Promise.all([
         api("/manage/projects") as Promise<ManagedProject[]>,
         api("/manage/connectors") as Promise<CatalogItem[]>,
         api("/manage/domains") as Promise<{ id: string; fqdn: string }[]>,
@@ -174,6 +182,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         api(`/insights?projectId=${id}`).catch(() => null),
         api(`/manage/projects/${id}/alert-rules`).catch(() => []),
         api(`/metrics/history?projectId=${id}&windowDays=30`).catch(() => []),
+        api(`/manage/projects/${id}/notes`).catch(() => []),
       ]);
       const found = managed.find((p) => p.id === id) ?? null;
       setProject(found);
@@ -192,6 +201,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       }
       setRules(Array.isArray(ruleRes) ? (ruleRes as AlertRule[]) : []);
       setHistory(Array.isArray(histRes) ? (histRes as MetricSeries[]) : []);
+      setNotes(Array.isArray(noteRes) ? (noteRes as Note[]) : []);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -282,6 +292,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
       {/* Connectors */}
       <ConnectorsPanel project={project} catalog={catalog} busy={busy} run={run} />
+
+      {/* Notes & tasks */}
+      <NotesPanel projectId={project.id} notes={notes} busy={busy} run={run} />
 
       {linkEntries.length > 0 && (
         <div className="mb-6 flex flex-wrap gap-2">
@@ -658,6 +671,98 @@ function DomainRow({
         </div>
       )}
     </li>
+  );
+}
+
+/* ------------------------------------------------------------- Notes ------- */
+
+function NotesPanel({
+  projectId,
+  notes,
+  busy,
+  run,
+}: {
+  projectId: string;
+  notes: Note[];
+  busy: boolean;
+  run: (fn: () => Promise<unknown>) => Promise<void>;
+}) {
+  const [body, setBody] = useState("");
+
+  const add = () =>
+    run(async () => {
+      const text = body.trim();
+      if (!text) return;
+      await api(`/manage/projects/${projectId}/notes`, {
+        method: "POST",
+        body: JSON.stringify({ body: text }),
+      });
+      setBody("");
+    });
+
+  const openTasks = notes.filter((n) => !n.done).length;
+
+  return (
+    <section className="card mb-6 p-5">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-base font-semibold">Notes &amp; tasks</h2>
+        {notes.length > 0 && (
+          <span className="text-xs text-text-muted">
+            {openTasks} open · {notes.length} total
+          </span>
+        )}
+      </div>
+
+      {notes.length > 0 && (
+        <ul className="mb-4 flex flex-col gap-1.5">
+          {notes.map((n) => (
+            <li key={n.id} className="flex items-start gap-2 rounded-lg px-1 py-1 hover:bg-bg-subtle">
+              <input
+                type="checkbox"
+                checked={n.done}
+                onChange={() =>
+                  run(() =>
+                    api(`/manage/projects/${projectId}/notes/${n.id}`, {
+                      method: "PATCH",
+                      body: JSON.stringify({ done: !n.done }),
+                    }),
+                  )
+                }
+                className="mt-1"
+                aria-label={n.done ? "Mark as not done" : "Mark as done"}
+              />
+              <span className={`flex-1 whitespace-pre-wrap text-sm ${n.done ? "text-text-muted line-through" : ""}`}>
+                {n.body}
+              </span>
+              <button
+                onClick={() => run(() => api(`/manage/projects/${projectId}/notes/${n.id}`, { method: "DELETE" }))}
+                disabled={busy}
+                className="shrink-0 rounded px-1.5 text-xs text-text-muted hover:text-red-600 disabled:opacity-50"
+                aria-label="Delete note"
+              >
+                ✕
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="flex items-start gap-2 rounded-lg border border-dashed border-border p-3">
+        <textarea
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void add();
+          }}
+          placeholder="Add a note or task… (⌘/Ctrl-Enter to add)"
+          rows={2}
+          className="input flex-1"
+        />
+        <button onClick={add} disabled={busy || !body.trim()} className="btn-accent">
+          Add
+        </button>
+      </div>
+    </section>
   );
 }
 
