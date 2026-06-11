@@ -6,6 +6,22 @@ import { logout } from "../lib/auth";
 import { useTheme } from "../lib/theme";
 import { Logo, Wordmark } from "./Logo";
 import { NAV_ITEMS, isActiveRoute } from "./nav";
+import { CommandPalette, OPEN_EVENT } from "./CommandPalette";
+
+/** Topbar search box that opens the command palette. */
+function SearchTrigger() {
+  return (
+    <button
+      onClick={() => window.dispatchEvent(new Event(OPEN_EVENT))}
+      className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-muted transition hover:border-accent/40 hover:text-text"
+      aria-label="Open command palette"
+    >
+      <span aria-hidden>⌕</span>
+      <span className="hidden sm:inline">Search…</span>
+      <kbd className="ml-1 hidden rounded border border-border px-1.5 py-0.5 text-[10px] sm:inline">⌘K</kbd>
+    </button>
+  );
+}
 
 function ThemeToggle() {
   const { theme, toggle } = useTheme();
@@ -107,12 +123,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <Logo className="h-7 w-7" />
         </a>
 
-        <div className="ml-auto flex items-center gap-1.5">
-          <ThemeToggle />
-        </div>
+        <div className="flex-1" />
+        <SearchTrigger />
+        <ThemeToggle />
       </header>
 
       <div>{children}</div>
+      <CommandPalette />
 
       {/* Mobile drawer */}
       {open && (
