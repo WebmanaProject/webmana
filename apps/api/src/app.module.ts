@@ -13,6 +13,7 @@ import { DomainsModule } from "./domains/domains.module.js";
 import { FinanceModule } from "./finance/finance.module.js";
 import { MetricsModule } from "./metrics/metrics.module.js";
 import { IncidentsModule } from "./incidents/incidents.module.js";
+import { AuditModule } from "./audit/audit.module.js";
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { IncidentsModule } from "./incidents/incidents.module.js";
     FinanceModule,
     MetricsModule,
     IncidentsModule,
+    AuditModule,
   ],
   controllers: [HealthController],
 })

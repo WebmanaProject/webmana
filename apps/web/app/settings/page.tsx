@@ -35,6 +35,15 @@ const CHANNEL_TARGET_KEY: Record<AlertChannel["kind"], string> = {
   slack: "webhookUrl",
   email: "to",
 };
+interface AuditEntry {
+  id: string;
+  actorEmail: string | null;
+  actorRole: string | null;
+  action: string;
+  targetId: string | null;
+  statusCode: number;
+  createdAt: string;
+}
 
 export default function SettingsPage() {
   const { user, loading: authLoading } = useRequireAuth();
@@ -42,6 +51,7 @@ export default function SettingsPage() {
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [tokens, setTokens] = useState<McpToken[]>([]);
   const [channels, setChannels] = useState<AlertChannel[]>([]);
+  const [audit, setAudit] = useState<AuditEntry[]>([]);
   const [fx, setFx] = useState<{ baseCurrency: string; rates: { currency: string; rateToBase: number }[] }>({ baseCurrency: "USD", rates: [] });
   const [baseCcy, setBaseCcy] = useState("USD");
   const [rateCcy, setRateCcy] = useState("");
@@ -85,6 +95,8 @@ export default function SettingsPage() {
       setFx(f);
       setBaseCcy(f.baseCurrency);
     }
+    const aRes = await authFetch("/api/audit?limit=50");
+    if (aRes.ok) setAudit((await aRes.json()) as AuditEntry[]);
   }, []);
 
   useEffect(() => {
@@ -365,6 +377,38 @@ export default function SettingsPage() {
               </li>
             ))}
           </ul>
+        )}
+      </section>
+
+      {/* Audit log */}
+      <section className="mt-8 rounded-2xl border border-border bg-surface p-6 shadow-sm">
+        <h2 className="mb-1 text-lg font-semibold">Audit log</h2>
+        <p className="mb-4 text-sm text-text-muted">Recent changes — who did what, and the result.</p>
+        {audit.length === 0 ? (
+          <p className="text-sm text-text-muted">No activity recorded yet.</p>
+        ) : (
+          <div className="overflow-x-auto rounded-lg border border-border">
+            <table className="w-full min-w-[34rem] text-sm">
+              <thead className="bg-bg-subtle text-left text-xs uppercase tracking-wide text-text-muted">
+                <tr>
+                  <th className="px-3 py-2">When</th>
+                  <th className="px-3 py-2">Actor</th>
+                  <th className="px-3 py-2">Action</th>
+                  <th className="px-3 py-2 text-right">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {audit.map((a) => (
+                  <tr key={a.id} className="border-t border-border">
+                    <td className="px-3 py-2 text-xs text-text-muted">{new Date(a.createdAt).toLocaleString()}</td>
+                    <td className="px-3 py-2">{a.actorEmail ?? "system"} {a.actorRole && <span className="text-xs text-text-muted">({a.actorRole})</span>}</td>
+                    <td className="px-3 py-2 font-mono text-xs">{a.action}</td>
+                    <td className={`px-3 py-2 text-right tabular-nums ${a.statusCode >= 400 ? "text-red-600" : "text-text-muted"}`}>{a.statusCode}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
     </main>

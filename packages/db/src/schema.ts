@@ -4,6 +4,7 @@ import {
   date,
   doublePrecision,
   index,
+  integer,
   jsonb,
   pgEnum,
   pgTable,
@@ -435,6 +436,27 @@ export const invitations = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index("invitations_org_idx").on(t.organizationId)],
+);
+
+/* ------------------------------------------------------------- Audit log --- */
+/** Append-only record of every mutating request (who/what/when/result). */
+export const auditLog = pgTable(
+  "audit_log",
+  {
+    id: id(),
+    /** Actor from the session, denormalized for display. Null for system. */
+    actorEmail: text("actor_email"),
+    actorRole: text("actor_role"),
+    /** Semantic action, e.g. "POST /manage/projects". */
+    action: text("action").notNull(),
+    method: text("method").notNull(),
+    path: text("path").notNull(),
+    /** Affected resource id when present in the route. */
+    targetId: text("target_id"),
+    statusCode: integer("status_code").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("audit_log_time_idx").on(t.createdAt)],
 );
 
 /* ----------------------------------------------------------- MCP tokens ---- */
