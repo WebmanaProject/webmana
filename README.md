@@ -22,9 +22,10 @@ uptime tools.
   costs; renewal alerts at 60/30/7 days; a domain can back several projects.
 - **FinOps dashboard** — annual renewal totals per currency, upcoming payments,
   cloud month-to-date spend, and a full cost breakdown.
-- **Monitoring connectors** — uptime, SSL, WHOIS, DNS, PageSpeed, Cloudflare,
-  GA4, UptimeRobot, Datadog, Snyk, AWS Cost, GitHub, Vercel — and **your own**,
-  via a separate Apache-2.0 SDK (see [Connectors](#connectors)).
+- **Monitoring connectors** — uptime, SSL, WHOIS, DNS, GoDaddy, Namecheap,
+  PageSpeed, Cloudflare, GA4, UptimeRobot, Datadog, Snyk, AWS Cost, GitHub,
+  Vercel — and **your own**, via a separate Apache-2.0 SDK (see
+  [Connectors](#connectors)).
 - **Alerting** — rules per project with webhook, Slack, and email channels, plus
   cost-anomaly and domain-expiry detection.
 - **Teams & RBAC** — local accounts, roles (admin / editor / viewer), email

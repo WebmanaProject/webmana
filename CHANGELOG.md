@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Registrar connectors**: `godaddy` (GoDaddy Domains API) and `namecheap`
+  (`namecheap.domains.getList`) report registration expiry **and the auto-renew
+  flag** — registrar-side data the keyless WHOIS connector can't see. Both emit a
+  `days_until_expiry` metric and escalate the expiry event to critical when
+  auto-renew is off.
+
 ## [0.2.0] - 2026-06-16
 
 ### Added
