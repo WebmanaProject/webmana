@@ -243,9 +243,18 @@ incidents past a threshold are escalated once); **weekly portfolio digest**
 (carried from M2). Deferred: status-page subscribers/custom domain, AI-written
 digest copy (the digest ships as a plain summary; AI flavour is optional later).
 
-### M5 — SDK v2 + Actions framework **[BOTH]**
+### M5 — SDK v2 + Actions framework **[BOTH]** — 🟡 in progress
 Capabilities/actions/OAuth in the SDK; audit log + action UI in the app; a safe
 starter action set; MCP write tools.
+
+Delivered: **audit log** (global interceptor records every mutating request +
+admin view); **Connector SDK v2** actions interface (`ConnectorAction` +
+`ActionResult`) with a first action (Vercel `redeploy`, destructive); **action
+framework** in the app — per-instance capability grants (`enabled_actions`),
+dispatch that enforces grant + RBAC + audit + input validation + timeline event,
+and a project-page UI to grant/run actions. Verified live (run blocked before
+grant; dispatched after). Remaining: MCP write tools, OAuth connector base,
+connector marketplace UI, more connectors/actions.
 
 ### M6 — Tenancy, SSO, Marketplace, Platform ops **[APP]** + connector wave **[CONN]**
 Multi-org, OIDC/SSO, REST API keys, connector marketplace UI, OpenTelemetry,
