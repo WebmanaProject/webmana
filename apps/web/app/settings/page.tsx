@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useRequireAuth, authFetch } from "../lib/auth";
+import { useRequireAuth, authFetch, API_BASE } from "../lib/auth";
 
 const ROLES = ["admin", "editor", "viewer"];
 
@@ -52,6 +52,7 @@ export default function SettingsPage() {
   const [tokens, setTokens] = useState<McpToken[]>([]);
   const [channels, setChannels] = useState<AlertChannel[]>([]);
   const [audit, setAudit] = useState<AuditEntry[]>([]);
+  const [importMsg, setImportMsg] = useState<string | null>(null);
   const [fx, setFx] = useState<{ baseCurrency: string; rates: { currency: string; rateToBase: number }[] }>({ baseCurrency: "USD", rates: [] });
   const [baseCcy, setBaseCcy] = useState("USD");
   const [rateCcy, setRateCcy] = useState("");
@@ -149,6 +150,27 @@ export default function SettingsPage() {
       setNewToken(body.token);
       setTokenName("");
     });
+
+  function importPortfolio(file: File) {
+    setImportMsg(null);
+    void run(async () => {
+      const text = await file.text();
+      let data: unknown;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error("file is not valid JSON");
+      }
+      const res = await authFetch("/api/portfolio/import", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error(`import failed (${res.status})`);
+      const body = (await res.json()) as { projects: number; domains: number };
+      setImportMsg(`Imported ${body.projects} project(s) and ${body.domains} domain(s).`);
+    });
+  }
 
   const createApiKey = () =>
     run(async () => {
@@ -435,6 +457,26 @@ export default function SettingsPage() {
             ))}
           </ul>
         )}
+      </section>
+
+      {/* Backup & portability */}
+      <section className="mt-8 rounded-2xl border border-border bg-surface p-6 shadow-sm">
+        <h2 className="mb-1 text-lg font-semibold">Backup &amp; portability</h2>
+        <p className="mb-4 text-sm text-text-muted">Export your portfolio (projects, domains, notes, budgets, FX) as JSON, or import a previous export. Connector secrets are never included.</p>
+        <div className="flex flex-wrap items-center gap-3">
+          <a href={`${API_BASE}/api/portfolio/export`} className="rounded-lg border border-border px-4 py-2 text-sm hover:border-accent">↓ Export JSON</a>
+          <label className="cursor-pointer rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-ink">
+            ↑ Import JSON
+            <input
+              type="file"
+              accept="application/json,.json"
+              className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) importPortfolio(f); e.target.value = ""; }}
+            />
+          </label>
+          {importMsg && <span className="text-sm text-accent-strong">{importMsg}</span>}
+        </div>
+        <p className="mt-2 text-xs text-text-muted">Import is additive — it creates new projects/domains and never deletes existing data.</p>
       </section>
 
       {/* Audit log */}
