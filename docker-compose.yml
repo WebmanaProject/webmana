@@ -54,6 +54,8 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       # Required to encrypt/decrypt connector secrets (upsert + run actions).
       WEBMANA_SECRET_KEY: ${WEBMANA_SECRET_KEY}
+      # Optional OpenTelemetry: set to a collector URL to enable tracing.
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       # Optional integrations used by the API directly.
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
