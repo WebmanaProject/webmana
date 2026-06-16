@@ -177,6 +177,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [notFound, setNotFound] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   useEffect(() => {
     void params.then((p) => setId(p.id));
@@ -278,16 +279,16 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           )}
         </div>
         <div className="flex items-center gap-2">
-          <select
-            value={project.status}
-            onChange={(e) => void changeStatus(e.target.value as ProjectStatus)}
-            className="input"
-          >
-            {STATUS_OPTIONS.map((s) => (
-              <option key={s.value} value={s.value}>{s.label}</option>
-            ))}
-          </select>
+          <span className="badge">
+            {STATUS_OPTIONS.find((s) => s.value === project.status)?.label ?? project.status}
+          </span>
           {isLive && <span className={`badge ${health.cls}`}>{health.label}</span>}
+          <button
+            onClick={() => setEditing((v) => !v)}
+            className={editing ? "btn-ghost" : "btn-accent"}
+          >
+            {editing ? "Done editing" : "Edit"}
+          </button>
         </div>
       </div>
 
@@ -297,17 +298,56 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         </div>
       )}
 
-      {/* Domains — assign one or many */}
-      <DomainsPanel project={project} allDomains={allDomains} busy={busy} run={run} />
+      {/* Edit mode — configuration panels, hidden until you click Edit. */}
+      {editing && (
+        <div className="mb-8 rounded-2xl border border-accent/30 bg-accent/[0.04] p-4">
+          <div className="mb-4 flex items-center gap-3">
+            <span className="text-sm font-medium text-text-muted">Status</span>
+            <select
+              value={project.status}
+              onChange={(e) => void changeStatus(e.target.value as ProjectStatus)}
+              className="input"
+            >
+              {STATUS_OPTIONS.map((s) => (
+                <option key={s.value} value={s.value}>{s.label}</option>
+              ))}
+            </select>
+          </div>
+          <DomainsPanel project={project} allDomains={allDomains} busy={busy} run={run} />
+          <EditDetails project={project} busy={busy} run={run} />
+          <ConnectorsPanel project={project} catalog={catalog} busy={busy} run={run} />
+          <NotesPanel projectId={project.id} notes={notes} busy={busy} run={run} />
+          <AlertRulesPanel projectId={project.id} rules={rules} run={run} />
+        </div>
+      )}
 
-      {/* Edit details */}
-      <EditDetails project={project} busy={busy} run={run} />
-
-      {/* Connectors */}
-      <ConnectorsPanel project={project} catalog={catalog} busy={busy} run={run} />
-
-      {/* Notes & tasks */}
-      <NotesPanel projectId={project.id} notes={notes} busy={busy} run={run} />
+      {/* ---- Detail dashboard (read-only) ---- */}
+      {project.connectors.length > 0 && (
+        <section className="card mb-6 p-4">
+          <h2 className="mb-3 text-sm font-semibold">Connectors</h2>
+          <ul className="flex flex-wrap gap-2">
+            {project.connectors.map((c) => (
+              <li
+                key={c.id}
+                className="flex items-center gap-1.5 rounded-lg border border-border bg-bg-subtle px-2.5 py-1 text-xs"
+                title={c.lastSyncError ?? undefined}
+              >
+                <span
+                  className={`h-1.5 w-1.5 rounded-full ${
+                    c.lastSyncStatus === "ok"
+                      ? "bg-accent"
+                      : c.lastSyncStatus === "error"
+                        ? "bg-red-500"
+                        : "bg-text-muted/40"
+                  }`}
+                />
+                <span className="font-medium">{c.connectorId}</span>
+                {!c.enabled && <span className="text-text-muted">· off</span>}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {linkEntries.length > 0 && (
         <div className="mb-6 flex flex-wrap gap-2">
@@ -386,8 +426,6 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               </ul>
             )}
           </section>
-
-          <AlertRulesPanel projectId={project.id} rules={rules} run={run} />
 
           {live && live.events.length > 0 && (
             <section className="sm:col-span-2">

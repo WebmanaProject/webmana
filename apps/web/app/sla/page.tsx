@@ -1,3 +1,8 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRequireAuth, authFetch } from "../lib/auth";
+
 interface ProjectSla {
   projectId: string;
   name: string;
@@ -16,20 +21,6 @@ interface SlaReport {
   projects: ProjectSla[];
 }
 
-const API_URL = process.env.API_URL ?? "http://localhost:4000";
-
-async function getReport(windowDays: number): Promise<SlaReport | null> {
-  try {
-    const res = await fetch(`${API_URL}/api/sla?windowDays=${windowDays}`, {
-      cache: "no-store",
-    });
-    if (!res.ok) return null;
-    return (await res.json()) as SlaReport;
-  } catch {
-    return null;
-  }
-}
-
 const WINDOWS = [7, 30, 90];
 
 function slaClass(pct: number | null): string {
@@ -43,15 +34,33 @@ function formatPct(pct: number | null): string {
   return pct === null ? "—" : `${pct.toFixed(3)}%`;
 }
 
-export default async function SlaPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ windowDays?: string }>;
-}) {
-  const { windowDays } = await searchParams;
-  const parsed = Number(windowDays);
-  const activeWindow = WINDOWS.includes(parsed) ? parsed : 30;
-  const report = await getReport(activeWindow);
+export default function SlaPage() {
+  useRequireAuth();
+  const [activeWindow, setActiveWindow] = useState(30);
+  const [report, setReport] = useState<SlaReport | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setFailed(false);
+    authFetch(`/api/sla?windowDays=${activeWindow}`)
+      .then(async (res) => {
+        if (!active) return;
+        if (res.ok) setReport((await res.json()) as SlaReport);
+        else setFailed(true);
+      })
+      .catch(() => {
+        if (active) setFailed(true);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [activeWindow]);
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-12">
@@ -71,25 +80,29 @@ export default async function SlaPage({
       <div className="mb-8 flex flex-wrap items-center gap-2">
         <span className="text-sm text-text-muted">Window:</span>
         {WINDOWS.map((w) => (
-          <a
+          <button
             key={w}
-            href={`/sla?windowDays=${w}`}
-            className={`rounded-full border px-3 py-1 text-xs ${
+            onClick={() => setActiveWindow(w)}
+            className={`rounded-full border px-3 py-1 text-xs transition ${
               activeWindow === w
                 ? "border-accent bg-accent text-accent-ink"
                 : "border-border bg-surface text-text-muted hover:border-accent"
             }`}
           >
             {w} days
-          </a>
+          </button>
         ))}
       </div>
 
-      {report === null ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-700">
-          Could not reach the API at <code>{API_URL}</code>. Is the stack running?
+      {loading ? (
+        <div className="rounded-2xl border border-border bg-bg-subtle p-8 text-center text-text-muted">
+          Loading…
         </div>
-      ) : report.projects.length === 0 ? (
+      ) : failed ? (
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-700">
+          Could not load the SLA report. Please try again.
+        </div>
+      ) : !report || report.projects.length === 0 ? (
         <div className="rounded-2xl border border-border bg-bg-subtle p-8 text-center text-text-muted">
           No projects yet.
         </div>
