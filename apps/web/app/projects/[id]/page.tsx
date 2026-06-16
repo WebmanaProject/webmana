@@ -80,6 +80,11 @@ interface CatalogItem {
   id: string;
   title: string;
   requiresSecrets: boolean;
+  vendor: string;
+  category: string;
+  authKind: "none" | "api_key" | "oauth2";
+  verified: boolean;
+  actions: { id: string; title: string; destructive: boolean }[];
 }
 
 interface ProjectMetric {
@@ -994,7 +999,10 @@ function ConnectorsPanel({
             <select className="input" value={connId} onChange={(e) => setConnId(e.target.value)}>
               {catalog.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.title} {c.requiresSecrets ? "(needs key)" : ""}
+                  {c.category} · {c.title}
+                  {c.authKind !== "none" ? ` · ${c.authKind}` : ""}
+                  {c.actions.length ? ` · ${c.actions.length} action${c.actions.length === 1 ? "" : "s"}` : ""}
+                  {c.verified ? " · ✓" : ""}
                 </option>
               ))}
             </select>

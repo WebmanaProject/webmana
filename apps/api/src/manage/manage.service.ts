@@ -1,7 +1,7 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { and, eq } from "drizzle-orm";
 import { schema, type Database } from "@webmana/db";
-import { getConnector, connectors } from "@webmana/connectors";
+import { getConnector, connectors, isBuiltInConnector } from "@webmana/connectors";
 import { encryptSecrets, decryptSecrets } from "@webmana/crypto";
 import { projectStatusSchema, type ProjectStatus } from "@webmana/contracts";
 import { DATABASE } from "../db/db.module.js";
@@ -65,13 +65,39 @@ export interface UpsertConnectorInput {
   enabled?: boolean;
 }
 
-/** Catalog entry describing a connector available to add. */
+/** Catalog entry describing a connector available to add (marketplace). */
 export interface ConnectorCatalogItem {
   id: string;
   title: string;
   requiresSecrets: boolean;
   defaultIntervalSeconds: number;
+  vendor: string;
+  category: string;
+  authKind: "none" | "api_key" | "oauth2";
+  verified: boolean;
+  docsUrl?: string;
+  actions: { id: string; title: string; destructive: boolean }[];
 }
+
+/** Fallback categories for built-in connectors lacking explicit SDK v2 meta. */
+const BUILTIN_CATEGORY: Record<string, string> = {
+  ssl: "security",
+  uptime: "uptime",
+  uptimerobot: "uptime",
+  dns: "dns",
+  whois: "domain",
+  pagespeed: "performance",
+  cloudflare: "dns",
+  ga4: "traffic",
+  observatory: "security",
+  snyk: "security",
+  datadog: "observability",
+  elasticsearch: "observability",
+  aws_cost: "cost",
+  github: "deploy",
+  vercel: "deploy",
+  stripe: "revenue",
+};
 
 export interface CreateAlertRuleInput {
   metricName: string;
@@ -274,14 +300,26 @@ export class ManageService {
     }));
   }
 
-  /** The connectors available to add to a project. */
+  /** The connectors available to add to a project (marketplace catalog). */
   listConnectorCatalog(): ConnectorCatalogItem[] {
-    return Object.values(connectors).map((c) => ({
-      id: c.id,
-      title: c.title,
-      requiresSecrets: c.requiresSecrets,
-      defaultIntervalSeconds: c.defaultIntervalSeconds,
-    }));
+    return Object.values(connectors)
+      .map((c) => ({
+        id: c.id,
+        title: c.title,
+        requiresSecrets: c.requiresSecrets,
+        defaultIntervalSeconds: c.defaultIntervalSeconds,
+        vendor: c.meta?.vendor ?? c.title,
+        category: c.meta?.category ?? BUILTIN_CATEGORY[c.id] ?? "other",
+        authKind: c.auth?.kind ?? (c.requiresSecrets ? "api_key" : "none"),
+        verified: c.meta?.verified ?? isBuiltInConnector(c.id),
+        docsUrl: c.meta?.docsUrl,
+        actions: (c.actions ?? []).map((a) => ({
+          id: a.id,
+          title: a.title,
+          destructive: a.destructive ?? false,
+        })),
+      }))
+      .sort((a, b) => a.category.localeCompare(b.category) || a.title.localeCompare(b.title));
   }
 
   private parseStatus(status?: ProjectStatus): ProjectStatus | undefined {
