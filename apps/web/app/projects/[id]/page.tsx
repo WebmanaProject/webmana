@@ -48,12 +48,20 @@ interface ProjectDomain {
   purchaseDate: string | null;
 }
 
+interface ConnectorActionMeta {
+  id: string;
+  title: string;
+  description?: string;
+  destructive: boolean;
+}
 interface ManagedConnector {
   id: string;
   connectorId: string;
   enabled: boolean;
   lastSyncStatus: string | null;
   lastSyncError: string | null;
+  enabledActions: string[];
+  actions: ConnectorActionMeta[];
 }
 
 interface ManagedProject {
@@ -881,51 +889,101 @@ function ConnectorsPanel({
         ) : (
           <ul className="mb-4 flex flex-col gap-2">
             {project.connectors.map((c) => (
-              <li
-                key={c.id}
-                className="flex items-center justify-between rounded-lg border border-border bg-bg-subtle px-3 py-2 text-sm"
-              >
-                <span className="flex items-center gap-2">
-                  <span
-                    className={`h-2 w-2 rounded-full ${
-                      c.lastSyncStatus === "ok"
-                        ? "bg-accent"
-                        : c.lastSyncStatus === "error"
-                          ? "bg-red-500"
-                          : "bg-border"
-                    }`}
-                  />
-                  <span className="font-medium">{c.connectorId}</span>
-                  {!c.enabled && <span className="text-xs text-text-muted">(disabled)</span>}
-                </span>
-                <span className="flex gap-2">
-                  <button
-                    onClick={() =>
-                      run(() =>
-                        api(`/manage/projects/${project.id}/connectors/${c.id}`, {
-                          method: "PATCH",
-                          body: JSON.stringify({ enabled: !c.enabled }),
-                        }),
-                      )
-                    }
-                    disabled={busy}
-                    className="rounded border border-border px-2 py-1 text-xs hover:border-accent disabled:opacity-50"
-                  >
-                    {c.enabled ? "Disable" : "Enable"}
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (!confirm(`Remove connector "${c.connectorId}"?`)) return;
-                      void run(() =>
-                        api(`/manage/projects/${project.id}/connectors/${c.id}`, { method: "DELETE" }),
-                      );
-                    }}
-                    disabled={busy}
-                    className="rounded border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50"
-                  >
-                    Remove
-                  </button>
-                </span>
+              <li key={c.id} className="rounded-lg border border-border bg-bg-subtle px-3 py-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <span
+                      className={`h-2 w-2 rounded-full ${
+                        c.lastSyncStatus === "ok"
+                          ? "bg-accent"
+                          : c.lastSyncStatus === "error"
+                            ? "bg-red-500"
+                            : "bg-border"
+                      }`}
+                    />
+                    <span className="font-medium">{c.connectorId}</span>
+                    {!c.enabled && <span className="text-xs text-text-muted">(disabled)</span>}
+                  </span>
+                  <span className="flex gap-2">
+                    <button
+                      onClick={() =>
+                        run(() =>
+                          api(`/manage/projects/${project.id}/connectors/${c.id}`, {
+                            method: "PATCH",
+                            body: JSON.stringify({ enabled: !c.enabled }),
+                          }),
+                        )
+                      }
+                      disabled={busy}
+                      className="rounded border border-border px-2 py-1 text-xs hover:border-accent disabled:opacity-50"
+                    >
+                      {c.enabled ? "Disable" : "Enable"}
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (!confirm(`Remove connector "${c.connectorId}"?`)) return;
+                        void run(() =>
+                          api(`/manage/projects/${project.id}/connectors/${c.id}`, { method: "DELETE" }),
+                        );
+                      }}
+                      disabled={busy}
+                      className="rounded border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50"
+                    >
+                      Remove
+                    </button>
+                  </span>
+                </div>
+
+                {c.actions.length > 0 && (
+                  <div className="mt-2 border-t border-border/70 pt-2">
+                    <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Actions</div>
+                    <ul className="flex flex-col gap-1">
+                      {c.actions.map((a) => {
+                        const granted = c.enabledActions.includes(a.id);
+                        return (
+                          <li key={a.id} className="flex items-center justify-between gap-2">
+                            <label className="flex items-center gap-2 text-xs" title={a.description}>
+                              <input
+                                type="checkbox"
+                                checked={granted}
+                                onChange={() => {
+                                  const next = granted
+                                    ? c.enabledActions.filter((x) => x !== a.id)
+                                    : [...c.enabledActions, a.id];
+                                  void run(() =>
+                                    api(`/manage/projects/${project.id}/connectors/${c.id}/actions`, {
+                                      method: "PATCH",
+                                      body: JSON.stringify({ actionIds: next }),
+                                    }),
+                                  );
+                                }}
+                              />
+                              {a.title}
+                              {a.destructive && <span className="text-red-600">⚠</span>}
+                            </label>
+                            <button
+                              disabled={busy || !granted}
+                              onClick={() => {
+                                if (a.destructive && !confirm(`Run "${a.title}"? This is a real, possibly irreversible action.`)) return;
+                                void run(async () => {
+                                  const res = (await api(
+                                    `/manage/projects/${project.id}/connectors/${c.id}/actions/${a.id}`,
+                                    { method: "POST", body: JSON.stringify({}) },
+                                  )) as { ok: boolean; message?: string };
+                                  alert(res.ok ? `✓ ${res.message ?? "done"}` : `✗ ${res.message ?? "failed"}`);
+                                });
+                              }}
+                              className="rounded border border-accent/40 px-2 py-0.5 text-xs text-accent-strong hover:bg-accent/10 disabled:opacity-40"
+                              title={granted ? "Run action" : "Enable the action first"}
+                            >
+                              Run
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                )}
               </li>
             ))}
           </ul>

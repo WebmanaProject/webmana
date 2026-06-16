@@ -146,6 +146,31 @@ export class ManageController {
     return this.manage.deleteConnector(id, instanceId).then(() => ({ ok: true }));
   }
 
+  /** Set which connector actions are enabled (capability grants). */
+  @Patch("projects/:id/connectors/:instanceId/actions")
+  @Roles("editor")
+  setConnectorActions(
+    @Param("id") id: string,
+    @Param("instanceId") instanceId: string,
+    @Body() body: { actionIds: string[] },
+  ) {
+    return this.manage
+      .setConnectorActions(id, instanceId, body?.actionIds ?? [])
+      .then(() => ({ ok: true }));
+  }
+
+  /** Run a granted connector action (two-way). Audited + RBAC-gated. */
+  @Post("projects/:id/connectors/:instanceId/actions/:actionId")
+  @Roles("editor")
+  runConnectorAction(
+    @Param("id") id: string,
+    @Param("instanceId") instanceId: string,
+    @Param("actionId") actionId: string,
+    @Body() body: unknown,
+  ) {
+    return this.manage.runConnectorAction(id, instanceId, actionId, body);
+  }
+
   /* --------------------------------------------------------- Alert rules ---- */
 
   @Get("projects/:id/alert-rules")

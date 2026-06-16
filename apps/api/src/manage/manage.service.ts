@@ -2,7 +2,7 @@ import { BadRequestException, Inject, Injectable, NotFoundException } from "@nes
 import { and, eq } from "drizzle-orm";
 import { schema, type Database } from "@webmana/db";
 import { getConnector, connectors } from "@webmana/connectors";
-import { encryptSecrets } from "@webmana/crypto";
+import { encryptSecrets, decryptSecrets } from "@webmana/crypto";
 import { projectStatusSchema, type ProjectStatus } from "@webmana/contracts";
 import { DATABASE } from "../db/db.module.js";
 
@@ -180,6 +180,8 @@ export class ManageService {
         enabled: boolean;
         lastSyncStatus: string | null;
         lastSyncError: string | null;
+        enabledActions: string[];
+        actions: { id: string; title: string; description?: string; destructive: boolean }[];
       }[];
     }[]
   > {
@@ -210,6 +212,7 @@ export class ManageService {
           enabled: schema.connectorInstances.enabled,
           lastSyncStatus: schema.connectorInstances.lastSyncStatus,
           lastSyncError: schema.connectorInstances.lastSyncError,
+          enabledActions: schema.connectorInstances.enabledActions,
         })
         .from(schema.connectorInstances),
       this.db
@@ -260,6 +263,13 @@ export class ManageService {
           enabled: c.enabled,
           lastSyncStatus: c.lastSyncStatus,
           lastSyncError: c.lastSyncError,
+          enabledActions: (c.enabledActions as string[]) ?? [],
+          actions: (getConnector(c.connectorId)?.actions ?? []).map((a) => ({
+            id: a.id,
+            title: a.title,
+            description: a.description,
+            destructive: a.destructive ?? false,
+          })),
         })),
     }));
   }
@@ -645,6 +655,109 @@ export class ManageService {
       )
       .returning({ id: schema.connectorInstances.id });
     if (deleted.length === 0) throw new NotFoundException("connector not found");
+  }
+
+  /* --------------------------------------------------- Connector actions ---- */
+
+  /** Load a connector instance scoped to a project, or throw. */
+  private async getInstance(projectId: string, instanceId: string) {
+    const [row] = await this.db
+      .select({
+        id: schema.connectorInstances.id,
+        connectorId: schema.connectorInstances.connectorId,
+        config: schema.connectorInstances.config,
+        encryptedSecrets: schema.connectorInstances.encryptedSecrets,
+        enabledActions: schema.connectorInstances.enabledActions,
+      })
+      .from(schema.connectorInstances)
+      .where(
+        and(
+          eq(schema.connectorInstances.id, instanceId),
+          eq(schema.connectorInstances.projectId, projectId),
+        ),
+      )
+      .limit(1);
+    if (!row) throw new NotFoundException("connector not found");
+    return row;
+  }
+
+  /** Set which actions are enabled (capability grants) on a connector instance. */
+  async setConnectorActions(
+    projectId: string,
+    instanceId: string,
+    actionIds: string[],
+  ): Promise<void> {
+    const inst = await this.getInstance(projectId, instanceId);
+    const available = new Set((getConnector(inst.connectorId)?.actions ?? []).map((a) => a.id));
+    const granted = [...new Set(actionIds)].filter((id) => available.has(id));
+    await this.db
+      .update(schema.connectorInstances)
+      .set({ enabledActions: granted, updatedAt: new Date() })
+      .where(eq(schema.connectorInstances.id, instanceId));
+  }
+
+  /**
+   * Run a connector action. Enforces the capability grant, validates the input
+   * against the action schema, decrypts secrets, executes the side effect, and
+   * records a timeline event. RBAC (editor+) is enforced at the controller; the
+   * request itself is captured by the audit interceptor.
+   */
+  async runConnectorAction(
+    projectId: string,
+    instanceId: string,
+    actionId: string,
+    input: unknown,
+  ): Promise<{ ok: boolean; message?: string; data?: Record<string, unknown> }> {
+    const inst = await this.getInstance(projectId, instanceId);
+    const enabled = (inst.enabledActions as string[]) ?? [];
+    if (!enabled.includes(actionId)) {
+      throw new BadRequestException(`action "${actionId}" is not enabled for this connector`);
+    }
+    const connector = getConnector(inst.connectorId);
+    const action = connector?.actions?.find((a) => a.id === actionId);
+    if (!action) throw new BadRequestException(`unknown action "${actionId}"`);
+
+    const parsed = action.inputSchema.safeParse(input ?? {});
+    if (!parsed.success) {
+      throw new BadRequestException(`invalid action input: ${parsed.error.message}`);
+    }
+
+    const [project] = await this.db
+      .select({ domain: schema.projects.domain })
+      .from(schema.projects)
+      .where(eq(schema.projects.id, projectId))
+      .limit(1);
+
+    const secrets = inst.encryptedSecrets ? decryptSecrets(inst.encryptedSecrets) : undefined;
+    const now = new Date();
+
+    let result: { ok: boolean; message?: string; data?: Record<string, unknown> };
+    try {
+      result = await action.run(
+        {
+          projectId,
+          domain: project?.domain ?? "",
+          config: (inst.config as Record<string, unknown>) ?? {},
+          secrets,
+          now,
+        },
+        parsed.data,
+      );
+    } catch (err) {
+      result = { ok: false, message: err instanceof Error ? err.message : String(err) };
+    }
+
+    // Record the action on the project timeline for visibility.
+    await this.db.insert(schema.events).values({
+      projectId,
+      connectorId: inst.connectorId,
+      severity: result.ok ? "info" : "warning",
+      title: `Action: ${action.title}`,
+      description: `${actionId} → ${result.ok ? "ok" : "failed"}${result.message ? `: ${result.message}` : ""}`,
+      occurredAt: now,
+    });
+
+    return result;
   }
 
   /* -------------------------------------------------------- Alert rules ----- */

@@ -245,6 +245,8 @@ export const connectorInstances = pgTable(
     /** Secret credentials, ENCRYPTED AT REST by the app layer (never plaintext). */
     encryptedSecrets: text("encrypted_secrets"),
     enabled: boolean("enabled").notNull().default(true),
+    /** SDK v2 capability grants: action ids allowed to run on this instance. */
+    enabledActions: jsonb("enabled_actions").notNull().default(sql`'[]'::jsonb`),
     lastSyncStatus: syncStatusEnum("last_sync_status"),
     lastSyncAt: timestamp("last_sync_at", { withTimezone: true }),
     lastSyncError: text("last_sync_error"),
