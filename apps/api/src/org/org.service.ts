@@ -62,6 +62,55 @@ export class OrgService {
     if (updated.length === 0) throw new NotFoundException("member not found");
   }
 
+  /** Remove a member from the org (and the user account when orphaned). */
+  async removeMember(userId: string): Promise<void> {
+    const orgId = await this.defaultOrgId();
+    const [member] = await this.db
+      .select({ role: schema.memberships.role })
+      .from(schema.memberships)
+      .where(
+        and(
+          eq(schema.memberships.userId, userId),
+          eq(schema.memberships.organizationId, orgId),
+        ),
+      )
+      .limit(1);
+    if (!member) throw new NotFoundException("member not found");
+
+    if (member.role === "admin") {
+      const admins = await this.db
+        .select({ userId: schema.memberships.userId })
+        .from(schema.memberships)
+        .where(
+          and(
+            eq(schema.memberships.organizationId, orgId),
+            eq(schema.memberships.role, "admin"),
+          ),
+        );
+      if (admins.length <= 1) {
+        throw new BadRequestException("cannot remove the last admin");
+      }
+    }
+
+    await this.db
+      .delete(schema.memberships)
+      .where(
+        and(
+          eq(schema.memberships.userId, userId),
+          eq(schema.memberships.organizationId, orgId),
+        ),
+      );
+
+    // Drop the user account when it no longer belongs to any org (single-org MVP).
+    const remaining = await this.db
+      .select({ userId: schema.memberships.userId })
+      .from(schema.memberships)
+      .where(eq(schema.memberships.userId, userId));
+    if (remaining.length === 0) {
+      await this.db.delete(schema.users).where(eq(schema.users.id, userId));
+    }
+  }
+
   /**
    * Create an invitation. Emails the link when SMTP is configured; always
    * returns the plaintext token (shown once) so the link still works without mail.

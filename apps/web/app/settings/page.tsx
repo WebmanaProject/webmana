@@ -2,8 +2,20 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRequireAuth, authFetch, API_BASE } from "../lib/auth";
+import { AiSettings } from "./AiSettings";
 
 const ROLES = ["admin", "editor", "viewer"];
+
+/** Compact relative time, e.g. "5m ago". Full timestamp goes in a title attr. */
+function relativeTime(iso: string): string {
+  const s = Math.round((Date.now() - new Date(iso).getTime()) / 1000);
+  if (s < 60) return `${Math.max(s, 0)}s ago`;
+  const m = Math.round(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.round(h / 24)}d ago`;
+}
 
 interface Member {
   userId: string;
@@ -52,6 +64,10 @@ export default function SettingsPage() {
   const [tokens, setTokens] = useState<McpToken[]>([]);
   const [channels, setChannels] = useState<AlertChannel[]>([]);
   const [audit, setAudit] = useState<AuditEntry[]>([]);
+  const [auditHasMore, setAuditHasMore] = useState(false);
+  const [auditQuery, setAuditQuery] = useState("");
+  const [auditStatus, setAuditStatus] = useState<"all" | "ok" | "err">("all");
+  const [auditLoadingMore, setAuditLoadingMore] = useState(false);
   const [importMsg, setImportMsg] = useState<string | null>(null);
   const [fx, setFx] = useState<{ baseCurrency: string; rates: { currency: string; rateToBase: number }[] }>({ baseCurrency: "USD", rates: [] });
   const [baseCcy, setBaseCcy] = useState("USD");
@@ -102,7 +118,11 @@ export default function SettingsPage() {
       setBaseCcy(f.baseCurrency);
     }
     const aRes = await authFetch("/api/audit?limit=50");
-    if (aRes.ok) setAudit((await aRes.json()) as AuditEntry[]);
+    if (aRes.ok) {
+      const rows = (await aRes.json()) as AuditEntry[];
+      setAudit(rows);
+      setAuditHasMore(rows.length === 50);
+    }
     const kRes = await authFetch("/api/org/api-keys");
     if (kRes.ok) setApiKeys((await kRes.json()) as { id: string; name: string; role: string; lastUsedAt: string | null }[]);
   }, []);
@@ -123,6 +143,29 @@ export default function SettingsPage() {
       setBusy(false);
     }
   }
+
+  async function loadMoreAudit() {
+    setAuditLoadingMore(true);
+    try {
+      const res = await authFetch(`/api/audit?limit=50&offset=${audit.length}`);
+      if (res.ok) {
+        const rows = (await res.json()) as AuditEntry[];
+        setAudit((prev) => [...prev, ...rows]);
+        setAuditHasMore(rows.length === 50);
+      }
+    } finally {
+      setAuditLoadingMore(false);
+    }
+  }
+
+  const removeMember = (m: Member) => {
+    if (!confirm(`Remove ${m.email} from the team? Their account will be deleted.`)) return;
+    void run(() =>
+      authFetch(`/api/org/members/${m.userId}`, { method: "DELETE" }).then((r) => {
+        if (!r.ok) throw new Error(`remove failed (${r.status})`);
+      }),
+    );
+  };
 
   const invite = () =>
     run(async () => {
@@ -239,36 +282,106 @@ export default function SettingsPage() {
       ? `${window.location.origin}/invite?token=${inviteToken}`
       : null;
 
+  const auditQ = auditQuery.trim().toLowerCase();
+  const filteredAudit = audit.filter((a) => {
+    if (auditStatus === "ok" && a.statusCode >= 400) return false;
+    if (auditStatus === "err" && a.statusCode < 400) return false;
+    if (auditQ) {
+      const hay = `${a.actorEmail ?? "system"} ${a.action} ${a.targetId ?? ""}`.toLowerCase();
+      if (!hay.includes(auditQ)) return false;
+    }
+    return true;
+  });
+
   return (
     <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
-      <div className="mb-8">
+      <div className="mb-6">
         <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-        <p className="mt-1 text-text-muted">Team members, invitations, and MCP tokens.</p>
+        <p className="mt-1 text-text-muted">
+          AI, team &amp; access, alerting, finance, backup, and the audit log.
+        </p>
+        <nav className="mt-4 flex flex-wrap gap-1.5 text-xs">
+          {[
+            ["#ai", "AI"],
+            ["#members", "Members"],
+            ["#alerts", "Alerts"],
+            ["#tokens", "MCP tokens"],
+            ["#apikeys", "API keys"],
+            ["#backup", "Backup"],
+            ["#audit", "Audit log"],
+          ].map(([href, label]) => (
+            <a
+              key={href}
+              href={href}
+              className="rounded-full border border-border bg-bg-subtle px-3 py-1 text-text-muted transition hover:border-accent hover:text-text"
+            >
+              {label}
+            </a>
+          ))}
+        </nav>
       </div>
 
       {error && <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
+      {/* AI assistant */}
+      <AiSettings />
+
       {/* Members */}
-      <section className="mb-8 rounded-2xl border border-border bg-surface p-6 shadow-sm">
-        <h2 className="mb-4 text-lg font-semibold">Members</h2>
-        <ul className="flex flex-col gap-2">
-          {members.map((m) => (
-            <li key={m.userId} className="flex items-center justify-between text-sm">
-              <span>{m.name ? `${m.name} · ` : ""}{m.email}</span>
-              <select
-                value={m.role}
-                disabled={busy || m.userId === undefined}
-                onChange={(e) => run(() => authFetch(`/api/org/members/${m.userId}/role`, {
-                  method: "PATCH",
-                  headers: { "content-type": "application/json" },
-                  body: JSON.stringify({ role: e.target.value }),
-                }).then((r) => { if (!r.ok) throw new Error(`role change failed (${r.status})`); }))}
-                className="rounded-md border border-border bg-bg px-2 py-1 text-xs"
-              >
-                {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
-              </select>
-            </li>
-          ))}
+      <section id="members" className="mb-8 scroll-mt-20 rounded-2xl border border-border bg-surface p-6 shadow-sm">
+        <h2 className="mb-1 text-lg font-semibold">Members</h2>
+        <p className="mb-4 text-sm text-text-muted">
+          {members.length} member{members.length === 1 ? "" : "s"}. Change a role inline,
+          or remove someone from the team.
+        </p>
+        <ul className="flex flex-col divide-y divide-border">
+          {members.map((m) => {
+            const isYou = m.email === user?.email;
+            return (
+              <li key={m.userId} className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                <span className="min-w-0 truncate">
+                  {m.name ? <span className="font-medium">{m.name}</span> : null}
+                  {m.name ? " · " : ""}
+                  <span className={m.name ? "text-text-muted" : "font-medium"}>{m.email}</span>
+                  {isYou && (
+                    <span className="ml-2 rounded-full bg-accent/15 px-2 py-0.5 text-xs text-accent-strong">
+                      you
+                    </span>
+                  )}
+                </span>
+                <span className="flex shrink-0 items-center gap-2">
+                  <select
+                    value={m.role}
+                    disabled={busy}
+                    onChange={(e) =>
+                      run(() =>
+                        authFetch(`/api/org/members/${m.userId}/role`, {
+                          method: "PATCH",
+                          headers: { "content-type": "application/json" },
+                          body: JSON.stringify({ role: e.target.value }),
+                        }).then((r) => {
+                          if (!r.ok) throw new Error(`role change failed (${r.status})`);
+                        }),
+                      )
+                    }
+                    className="rounded-md border border-border bg-bg px-2 py-1 text-xs"
+                  >
+                    {ROLES.map((r) => (
+                      <option key={r} value={r}>{r}</option>
+                    ))}
+                  </select>
+                  {!isYou && (
+                    <button
+                      onClick={() => removeMember(m)}
+                      disabled={busy}
+                      className="rounded border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </span>
+              </li>
+            );
+          })}
         </ul>
       </section>
 
@@ -343,7 +456,7 @@ export default function SettingsPage() {
       </section>
 
       {/* Alert channels */}
-      <section className="mb-8 rounded-2xl border border-border bg-surface p-6 shadow-sm">
+      <section id="alerts" className="mb-8 scroll-mt-20 rounded-2xl border border-border bg-surface p-6 shadow-sm">
         <h2 className="mb-1 text-lg font-semibold">Alert channels</h2>
         <p className="mb-4 text-sm text-text-muted">Where alerts are delivered. Route by minimum severity and an optional project tag.</p>
         {channels.length > 0 && (
@@ -387,7 +500,7 @@ export default function SettingsPage() {
       </section>
 
       {/* MCP tokens */}
-      <section className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
+      <section id="tokens" className="scroll-mt-20 rounded-2xl border border-border bg-surface p-6 shadow-sm">
         <h2 className="mb-4 text-lg font-semibold">MCP tokens</h2>
         <div className="flex flex-wrap gap-2">
           <input
@@ -423,7 +536,7 @@ export default function SettingsPage() {
       </section>
 
       {/* REST API keys */}
-      <section className="mt-8 rounded-2xl border border-border bg-surface p-6 shadow-sm">
+      <section id="apikeys" className="mt-8 scroll-mt-20 rounded-2xl border border-border bg-surface p-6 shadow-sm">
         <h2 className="mb-1 text-lg font-semibold">REST API keys</h2>
         <p className="mb-4 text-sm text-text-muted">Programmatic access to the REST API. Send as <code>Authorization: Bearer wmk_…</code>. Scoped to a role.</p>
         <div className="flex flex-wrap gap-2">
@@ -460,7 +573,7 @@ export default function SettingsPage() {
       </section>
 
       {/* Backup & portability */}
-      <section className="mt-8 rounded-2xl border border-border bg-surface p-6 shadow-sm">
+      <section id="backup" className="mt-8 scroll-mt-20 rounded-2xl border border-border bg-surface p-6 shadow-sm">
         <h2 className="mb-1 text-lg font-semibold">Backup &amp; portability</h2>
         <p className="mb-4 text-sm text-text-muted">Export your portfolio (projects, domains, notes, budgets, FX) as JSON, or import a previous export. Connector secrets are never included.</p>
         <div className="flex flex-wrap items-center gap-3">
@@ -480,34 +593,86 @@ export default function SettingsPage() {
       </section>
 
       {/* Audit log */}
-      <section className="mt-8 rounded-2xl border border-border bg-surface p-6 shadow-sm">
+      <section id="audit" className="mt-8 scroll-mt-20 rounded-2xl border border-border bg-surface p-6 shadow-sm">
         <h2 className="mb-1 text-lg font-semibold">Audit log</h2>
         <p className="mb-4 text-sm text-text-muted">Recent changes — who did what, and the result.</p>
+
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <input
+            value={auditQuery}
+            onChange={(e) => setAuditQuery(e.target.value)}
+            placeholder="Search actor, action, target…"
+            className="min-w-[14rem] flex-1 rounded-lg border border-border bg-bg px-3 py-2 text-sm"
+          />
+          <select
+            value={auditStatus}
+            onChange={(e) => setAuditStatus(e.target.value as typeof auditStatus)}
+            className="rounded-lg border border-border bg-bg px-3 py-2 text-sm"
+          >
+            <option value="all">All results</option>
+            <option value="ok">Success only</option>
+            <option value="err">Errors only</option>
+          </select>
+        </div>
+
         {audit.length === 0 ? (
           <p className="text-sm text-text-muted">No activity recorded yet.</p>
+        ) : filteredAudit.length === 0 ? (
+          <p className="text-sm text-text-muted">No entries match your filter.</p>
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-border">
-            <table className="w-full min-w-[34rem] text-sm">
-              <thead className="bg-bg-subtle text-left text-xs uppercase tracking-wide text-text-muted">
-                <tr>
-                  <th className="px-3 py-2">When</th>
-                  <th className="px-3 py-2">Actor</th>
-                  <th className="px-3 py-2">Action</th>
-                  <th className="px-3 py-2 text-right">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {audit.map((a) => (
-                  <tr key={a.id} className="border-t border-border">
-                    <td className="px-3 py-2 text-xs text-text-muted">{new Date(a.createdAt).toLocaleString()}</td>
-                    <td className="px-3 py-2">{a.actorEmail ?? "system"} {a.actorRole && <span className="text-xs text-text-muted">({a.actorRole})</span>}</td>
-                    <td className="px-3 py-2 font-mono text-xs">{a.action}</td>
-                    <td className={`px-3 py-2 text-right tabular-nums ${a.statusCode >= 400 ? "text-red-600" : "text-text-muted"}`}>{a.statusCode}</td>
+          <>
+            <div className="overflow-x-auto rounded-lg border border-border">
+              <table className="w-full min-w-[40rem] text-sm">
+                <thead className="bg-bg-subtle text-left text-xs uppercase tracking-wide text-text-muted">
+                  <tr>
+                    <th className="px-3 py-2">When</th>
+                    <th className="px-3 py-2">Actor</th>
+                    <th className="px-3 py-2">Action</th>
+                    <th className="px-3 py-2">Target</th>
+                    <th className="px-3 py-2 text-right">Status</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {filteredAudit.map((a) => (
+                    <tr key={a.id} className="border-t border-border align-top">
+                      <td
+                        className="whitespace-nowrap px-3 py-2 text-xs text-text-muted"
+                        title={new Date(a.createdAt).toLocaleString()}
+                      >
+                        {relativeTime(a.createdAt)}
+                      </td>
+                      <td className="px-3 py-2">
+                        {a.actorEmail ?? "system"}{" "}
+                        {a.actorRole && <span className="text-xs text-text-muted">({a.actorRole})</span>}
+                      </td>
+                      <td className="px-3 py-2 font-mono text-xs">{a.action}</td>
+                      <td className="px-3 py-2 font-mono text-xs text-text-muted" title={a.targetId ?? undefined}>
+                        {a.targetId ? a.targetId.slice(0, 8) : "—"}
+                      </td>
+                      <td className={`px-3 py-2 text-right tabular-nums ${a.statusCode >= 400 ? "text-red-600" : "text-text-muted"}`}>
+                        {a.statusCode}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-3 flex items-center justify-between text-xs text-text-muted">
+              <span>
+                Showing {filteredAudit.length} of {audit.length} loaded
+                {auditQ || auditStatus !== "all" ? " (filtered)" : ""}.
+              </span>
+              {auditHasMore && (
+                <button
+                  onClick={() => void loadMoreAudit()}
+                  disabled={auditLoadingMore}
+                  className="rounded-lg border border-border px-3 py-1.5 hover:border-accent disabled:opacity-50"
+                >
+                  {auditLoadingMore ? "Loading…" : "Load more"}
+                </button>
+              )}
+            </div>
+          </>
         )}
       </section>
     </main>

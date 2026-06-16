@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -7,6 +8,7 @@ import {
   Param,
   Patch,
   Post,
+  Req,
   UseGuards,
 } from "@nestjs/common";
 import { OrgService } from "./org.service.js";
@@ -28,6 +30,18 @@ export class OrgController {
   @Patch("members/:userId/role")
   changeRole(@Param("userId") userId: string, @Body() body: { role: string }) {
     return this.org.changeRole(userId, body.role).then(() => ({ ok: true }));
+  }
+
+  @Delete("members/:userId")
+  @HttpCode(200)
+  removeMember(
+    @Param("userId") userId: string,
+    @Req() req: { user?: { sub?: string } },
+  ) {
+    if (req.user?.sub === userId) {
+      throw new BadRequestException("you cannot remove your own account");
+    }
+    return this.org.removeMember(userId).then(() => ({ ok: true }));
   }
 
   @Get("invitations")

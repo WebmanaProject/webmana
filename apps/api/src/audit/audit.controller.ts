@@ -8,10 +8,13 @@ import { RolesGuard, Roles } from "../auth/roles.guard.js";
 export class AuditController {
   constructor(private readonly audit: AuditService) {}
 
-  /** Recent audit entries — admin only. */
+  /** Recent audit entries — admin only. Supports limit + offset paging. */
   @Get()
   @Roles("admin")
-  list(@Query("limit") limit?: string) {
-    return this.audit.list(limit ? Number(limit) : undefined);
+  list(@Query("limit") limit?: string, @Query("offset") offset?: string) {
+    return this.audit.list(
+      limit ? Number(limit) : undefined,
+      offset ? Number(offset) : undefined,
+    );
   }
 }

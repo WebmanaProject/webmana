@@ -26,13 +26,14 @@ export class AuditService {
     }
   }
 
-  /** Most recent audit entries (newest first). */
-  async list(limit = 100) {
+  /** Most recent audit entries (newest first), paginated. */
+  async list(limit = 100, offset = 0) {
     const rows = await this.db
       .select()
       .from(schema.auditLog)
       .orderBy(desc(schema.auditLog.createdAt))
-      .limit(Math.min(Math.max(limit, 1), 500));
+      .limit(Math.min(Math.max(limit, 1), 500))
+      .offset(Math.max(offset, 0));
     return rows.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() }));
   }
 }
