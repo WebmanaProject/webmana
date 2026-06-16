@@ -461,6 +461,22 @@ export const auditLog = pgTable(
   (t) => [index("audit_log_time_idx").on(t.createdAt)],
 );
 
+/* ----------------------------------------------------------- API keys ----- */
+/** Keys for the REST API (scripting/automation). Role-scoped like MCP tokens. */
+export const apiKeys = pgTable("api_keys", {
+  id: id(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  /** Hash of the key; the plaintext is shown once at creation. */
+  tokenHash: text("token_hash").notNull().unique(),
+  role: roleEnum("role").notNull().default("viewer"),
+  lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  createdAt: createdAt(),
+});
+
 /* ----------------------------------------------------------- MCP tokens ---- */
 /** Tokens for MCP HTTP/SSE clients. Scoped to a role so AI inherits RBAC. */
 export const mcpTokens = pgTable("mcp_tokens", {

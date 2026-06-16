@@ -55,6 +55,22 @@ export class OrgController {
   revokeMcpToken(@Param("id") id: string) {
     return this.org.revokeMcpToken(id).then(() => ({ ok: true }));
   }
+
+  @Get("api-keys")
+  apiKeys() {
+    return this.org.listApiKeys();
+  }
+
+  @Post("api-keys")
+  createApiKey(@Body() body: { name: string; role: string }) {
+    return this.org.createApiKey(body.name, body.role);
+  }
+
+  @Delete("api-keys/:id")
+  @HttpCode(200)
+  revokeApiKey(@Param("id") id: string) {
+    return this.org.revokeApiKey(id).then(() => ({ ok: true }));
+  }
 }
 
 /** Public endpoint to accept an invitation (token-gated, no session required). */

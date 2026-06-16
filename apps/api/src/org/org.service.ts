@@ -191,4 +191,55 @@ export class OrgService {
       .returning({ id: schema.mcpTokens.id });
     if (deleted.length === 0) throw new NotFoundException("token not found");
   }
+
+  /* ------------------------------------------------------------- API keys -- */
+
+  async listApiKeys(): Promise<{ id: string; name: string; role: string; lastUsedAt: string | null; createdAt: string }[]> {
+    const orgId = await this.defaultOrgId();
+    const rows = await this.db
+      .select({
+        id: schema.apiKeys.id,
+        name: schema.apiKeys.name,
+        role: schema.apiKeys.role,
+        lastUsedAt: schema.apiKeys.lastUsedAt,
+        revokedAt: schema.apiKeys.revokedAt,
+        createdAt: schema.apiKeys.createdAt,
+      })
+      .from(schema.apiKeys)
+      .where(eq(schema.apiKeys.organizationId, orgId));
+    return rows
+      .filter((r) => !r.revokedAt)
+      .map((r) => ({
+        id: r.id,
+        name: r.name,
+        role: r.role,
+        lastUsedAt: r.lastUsedAt?.toISOString() ?? null,
+        createdAt: r.createdAt.toISOString(),
+      }));
+  }
+
+  /** Create a REST API key; returns the plaintext key (shown once). */
+  async createApiKey(name: string, role: string): Promise<{ key: string }> {
+    if (!name?.trim()) throw new BadRequestException("name is required");
+    if (!ROLES.includes(role as Role)) throw new BadRequestException("invalid role");
+    const orgId = await this.defaultOrgId();
+    const key = `wmk_${randomBytes(24).toString("base64url")}`;
+    await this.db.insert(schema.apiKeys).values({
+      organizationId: orgId,
+      name: name.trim(),
+      tokenHash: sha256(key),
+      role: role as Role,
+    });
+    return { key };
+  }
+
+  async revokeApiKey(id: string): Promise<void> {
+    const orgId = await this.defaultOrgId();
+    const updated = await this.db
+      .update(schema.apiKeys)
+      .set({ revokedAt: new Date() })
+      .where(and(eq(schema.apiKeys.id, id), eq(schema.apiKeys.organizationId, orgId)))
+      .returning({ id: schema.apiKeys.id });
+    if (updated.length === 0) throw new NotFoundException("api key not found");
+  }
 }

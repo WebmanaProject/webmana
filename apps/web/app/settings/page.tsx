@@ -68,6 +68,11 @@ export default function SettingsPage() {
   const [tokenName, setTokenName] = useState("");
   const [tokenRole, setTokenRole] = useState("viewer");
   const [newToken, setNewToken] = useState<string | null>(null);
+  // REST API key form
+  const [keyName, setKeyName] = useState("");
+  const [keyRole, setKeyRole] = useState("viewer");
+  const [newKey, setNewKey] = useState<string | null>(null);
+  const [apiKeys, setApiKeys] = useState<{ id: string; name: string; role: string; lastUsedAt: string | null }[]>([]);
   // Alert channel form
   const [chKind, setChKind] = useState<"webhook" | "slack" | "email">("webhook");
   const [chTarget, setChTarget] = useState("");
@@ -97,6 +102,8 @@ export default function SettingsPage() {
     }
     const aRes = await authFetch("/api/audit?limit=50");
     if (aRes.ok) setAudit((await aRes.json()) as AuditEntry[]);
+    const kRes = await authFetch("/api/org/api-keys");
+    if (kRes.ok) setApiKeys((await kRes.json()) as { id: string; name: string; role: string; lastUsedAt: string | null }[]);
   }, []);
 
   useEffect(() => {
@@ -141,6 +148,19 @@ export default function SettingsPage() {
       const body = (await res.json()) as { token: string };
       setNewToken(body.token);
       setTokenName("");
+    });
+
+  const createApiKey = () =>
+    run(async () => {
+      const res = await authFetch("/api/org/api-keys", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: keyName, role: keyRole }),
+      });
+      if (!res.ok) throw new Error(`api key failed (${res.status})`);
+      const body = (await res.json()) as { key: string };
+      setNewKey(body.key);
+      setKeyName("");
     });
 
   const createChannel = () =>
@@ -372,6 +392,43 @@ export default function SettingsPage() {
                 <span>{t.name} <span className="text-text-muted">({t.role})</span></span>
                 <button
                   onClick={() => { if (confirm(`Revoke token "${t.name}"?`)) void run(() => authFetch(`/api/org/mcp-tokens/${t.id}`, { method: "DELETE" }).then((r)=>{if(!r.ok)throw new Error("revoke failed");})); }}
+                  className="rounded border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+                >Revoke</button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {/* REST API keys */}
+      <section className="mt-8 rounded-2xl border border-border bg-surface p-6 shadow-sm">
+        <h2 className="mb-1 text-lg font-semibold">REST API keys</h2>
+        <p className="mb-4 text-sm text-text-muted">Programmatic access to the REST API. Send as <code>Authorization: Bearer wmk_…</code>. Scoped to a role.</p>
+        <div className="flex flex-wrap gap-2">
+          <input
+            placeholder="Key name (e.g. CI pipeline)"
+            value={keyName}
+            onChange={(e) => setKeyName(e.target.value)}
+            className="flex-1 rounded-lg border border-border bg-bg px-3 py-2 text-sm"
+          />
+          <select value={keyRole} onChange={(e) => setKeyRole(e.target.value)} className="rounded-lg border border-border bg-bg px-3 py-2 text-sm">
+            {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+          </select>
+          <button onClick={createApiKey} disabled={busy || !keyName.trim()} className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-ink disabled:opacity-50">Create</button>
+        </div>
+        {newKey && (
+          <div className="mt-3 rounded-lg border border-accent/40 bg-accent/5 p-3 text-xs">
+            <p className="mb-1 font-medium text-accent-strong">New API key (copy now, shown once):</p>
+            <code className="break-all">{newKey}</code>
+          </div>
+        )}
+        {apiKeys.length > 0 && (
+          <ul className="mt-4 space-y-1">
+            {apiKeys.map((k) => (
+              <li key={k.id} className="flex items-center justify-between text-sm">
+                <span>{k.name} <span className="text-text-muted">({k.role})</span>{k.lastUsedAt && <span className="ml-2 text-xs text-text-muted">last used {new Date(k.lastUsedAt).toLocaleDateString()}</span>}</span>
+                <button
+                  onClick={() => { if (confirm(`Revoke API key "${k.name}"?`)) void run(() => authFetch(`/api/org/api-keys/${k.id}`, { method: "DELETE" }).then((r)=>{if(!r.ok)throw new Error("revoke failed");})); }}
                   className="rounded border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50"
                 >Revoke</button>
               </li>
