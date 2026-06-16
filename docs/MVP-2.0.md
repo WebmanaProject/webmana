@@ -260,9 +260,15 @@ viewer MCP tokens can't run; enriched catalog). Deferred: full OAuth2 connector
 flow (the `auth: oauth2` descriptor exists; the authorize/callback/refresh flow
 needs a real provider to build against) and a dedicated marketplace page.
 
-### M6 — Tenancy, SSO, Marketplace, Platform ops **[APP]** + connector wave **[CONN]**
+### M6 — Tenancy, SSO, Marketplace, Platform ops **[APP]** + connector wave **[CONN]** — 🟡 in progress
 Multi-org, OIDC/SSO, REST API keys, connector marketplace UI, OpenTelemetry,
 backup/restore, and a wave of new connectors (analytics, errors, registrars, CI).
+
+Delivered: **REST API keys** (`wmk_…` Bearer, role-scoped, revocable, last-used
+tracked; AuthGuard accepts them alongside session JWTs; Settings manager).
+Remaining (need external systems/decisions to build & verify): multi-org
+switcher, OIDC/SSO (real IdP), OpenTelemetry (collector), backup/restore + Helm,
+data export/import.
 
 > Ordering rationale: ship visible value early (M1–M2), monetizable depth next
 > (M3), reliability (M4), then the architecturally heavy two-way shift (M5) once
