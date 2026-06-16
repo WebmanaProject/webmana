@@ -12,7 +12,7 @@ Built for people running **a dozen or more domains** — solo or in a small team
 who are tired of scattering that across registrar dashboards, spreadsheets, and
 uptime tools.
 
-> Status: **v0.1.0.** See [CHANGELOG.md](CHANGELOG.md) and [docs/ROADMAP.md](docs/ROADMAP.md).
+> Status: **v0.2.0.** See [CHANGELOG.md](CHANGELOG.md) and [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Highlights
 

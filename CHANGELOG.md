@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-06-16
+
 ### Added
 
 - **Domains & FinOps**: domains are first-class assets (registrar, expiry,
@@ -98,5 +100,6 @@ dashboard with a built-in MCP server.
 - **Documentation**: architecture overview, connector SDK guide, roadmap,
   contributing guide, and licensing (AGPL-3.0 app / Apache-2.0 SDK packages).
 
-[Unreleased]: https://github.com/your-org/webmana/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/your-org/webmana/releases/tag/v0.1.0
+[Unreleased]: https://github.com/WebmanaProject/webmana/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/WebmanaProject/webmana/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/WebmanaProject/webmana/releases/tag/v0.1.0

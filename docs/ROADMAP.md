@@ -2,7 +2,10 @@
 
 Phased delivery. Each phase should be shippable and demoable on its own.
 
-## Phase 0 — Scaffold (current)
+> **Status:** Phases 0–5 are delivered, along with the portfolio-lifecycle pivot
+> below. See [CHANGELOG.md](../CHANGELOG.md) for the full shipped history.
+
+## Phase 0 — Scaffold ✅
 
 - Monorepo (pnpm + Turborepo), TypeScript base config.
 - `docker-compose.yml`: web, api, worker, mcp, postgres (TimescaleDB), redis.
@@ -11,23 +14,23 @@ Phased delivery. Each phase should be shippable and demoable on its own.
 - Empty dashboard listing projects.
 - Licenses (AGPL app / Apache SDK), DCO, docs.
 
-## Phase 1 — Connector framework + keyless built-ins
+## Phase 1 — Connector framework + keyless built-ins ✅
 
 - Connector SDK (interface, runner, scheduler, error isolation, sync status).
 - Built-in connectors needing **no external keys**: SSL expiry, WHOIS, DNS, HTTP uptime.
 - First real data on the dashboard. Reference connector: **SSL expiry**.
 
-## Phase 2 — API connectors
+## Phase 2 — API connectors ✅
 
 - Cloudflare, Google PageSpeed Insights, UptimeRobot, Google Analytics (**GA4 Data API**).
 - Encrypted credential storage per connector instance.
 
-## Phase 3 — MCP server
+## Phase 3 — MCP server ✅
 
 - Transports: **stdio** (local Cursor) + **HTTP/SSE** (remote, Bearer token).
 - Resources + read-only tools, all scoped through the shared RBAC guard.
 
-## Phase 4 — Alerting + health score + timeline
+## Phase 4 — Alerting + health score + timeline ✅
 
 - `alert_rules` evaluated after each sync (e.g. SSL < 14 days, uptime below threshold,
   PageSpeed regression).
@@ -35,7 +38,7 @@ Phased delivery. Each phase should be shippable and demoable on its own.
 - Unified **health score** per project.
 - Unified activity/incident timeline.
 
-## Phase 5 — Ecosystem + remaining connectors
+## Phase 5 — Ecosystem + remaining connectors ✅
 
 - Connector SDK documentation (community connectors).
 - Public status page generation.
