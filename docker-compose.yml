@@ -108,6 +108,8 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       MCP_PORT: 4100
       MCP_DEV_TOKEN: ${MCP_DEV_TOKEN:-}
+      # Required to decrypt connector secrets when running actions via MCP.
+      WEBMANA_SECRET_KEY: ${WEBMANA_SECRET_KEY}
     ports:
       - "4100:4100"
     depends_on:

@@ -9,6 +9,7 @@ import {
   listProjects,
   listRecentEvents,
 } from "./queries.js";
+import { listConnectorActions, runConnectorAction } from "./actions.js";
 
 export interface McpContext {
   db: Database;
@@ -79,6 +80,38 @@ export function createMcpServer(ctx: McpContext): McpServer {
       return json(insight);
     },
   );
+
+  /* ---------------------------------------------------------- Actions ----- */
+
+  server.tool(
+    "list_connector_actions",
+    "List a project's connectors with the two-way actions they expose and which are enabled (granted) for use. Use before run_connector_action to discover ids.",
+    { projectId: z.string().uuid() },
+    async ({ projectId }) => json(await listConnectorActions(ctx.db, ctx.organizationId, projectId)),
+  );
+
+  // Write tool: only editor/admin tokens may run actions (viewer is read-only).
+  if (ctx.role !== "viewer") {
+    server.tool(
+      "run_connector_action",
+      "Run an enabled connector action (a real, possibly side-effecting operation, e.g. a redeploy). The action must already be granted on the connector; viewer tokens cannot call this. Returns the action result.",
+      {
+        projectId: z.string().uuid(),
+        connectorInstanceId: z.string().uuid(),
+        actionId: z.string().min(1),
+        input: z.record(z.unknown()).optional(),
+      },
+      async ({ projectId, connectorInstanceId, actionId, input }) =>
+        json(
+          await runConnectorAction(ctx.db, ctx.organizationId, ctx.role, {
+            projectId,
+            connectorInstanceId,
+            actionId,
+            input,
+          }),
+        ),
+    );
+  }
 
   return server;
 }

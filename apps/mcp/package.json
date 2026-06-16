@@ -18,7 +18,9 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",
+    "@webmana/connectors": "workspace:*",
     "@webmana/contracts": "workspace:*",
+    "@webmana/crypto": "workspace:*",
     "@webmana/db": "workspace:*",
     "drizzle-orm": "^0.38.3",
     "express": "^4.21.2",
