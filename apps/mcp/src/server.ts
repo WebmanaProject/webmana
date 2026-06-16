@@ -8,6 +8,10 @@ import {
   getSlaReport,
   listProjects,
   listRecentEvents,
+  queryMetrics,
+  listDomains,
+  listIncidents,
+  getFinanceSummary,
 } from "./queries.js";
 import { listConnectorActions, runConnectorAction } from "./actions.js";
 
@@ -79,6 +83,39 @@ export function createMcpServer(ctx: McpContext): McpServer {
       }
       return json(insight);
     },
+  );
+
+  server.tool(
+    "query_metrics",
+    "Time-series metric history for a project — the raw data connectors collect (uptime, response time, SSL days, cost, revenue, deploy state, etc.), grouped by metric name over a trailing window (windowDays default 30, max 365). Optionally filter to one metric name.",
+    {
+      projectId: z.string().uuid(),
+      name: z.string().min(1).optional(),
+      windowDays: z.number().int().min(1).max(365).optional(),
+    },
+    async ({ projectId, name, windowDays }) =>
+      json(await queryMetrics(ctx.db, ctx.organizationId, projectId, { name, windowDays })),
+  );
+
+  server.tool(
+    "list_domains",
+    "List domains in the org (registrar, expiry, auto-renew, renewal cost, linked project). Optionally filter to one project.",
+    { projectId: z.string().uuid().optional() },
+    async ({ projectId }) => json(await listDomains(ctx.db, ctx.organizationId, projectId)),
+  );
+
+  server.tool(
+    "list_incidents",
+    "List incidents in the org (title, severity, status, project, timestamps), newest first. Optionally filter by status.",
+    { status: z.enum(["open", "acknowledged", "resolved"]).optional() },
+    async ({ status }) => json(await listIncidents(ctx.db, ctx.organizationId, status)),
+  );
+
+  server.tool(
+    "get_finance_summary",
+    "Org finance summary: base currency, annual domain renewals by currency, and current MRR by currency.",
+    {},
+    async () => json(await getFinanceSummary(ctx.db, ctx.organizationId)),
   );
 
   /* ---------------------------------------------------------- Actions ----- */

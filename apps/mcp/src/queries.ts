@@ -413,3 +413,163 @@ export async function listRecentEvents(
     occurredAt: e.occurredAt.toISOString(),
   }));
 }
+
+/* ------------------------------------------------------ Extended queries --- */
+
+const WINDOW_DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Verify a project belongs to the org (so all reads stay scoped). */
+async function projectInOrg(db: Database, organizationId: string, projectId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ id: schema.projects.id })
+    .from(schema.projects)
+    .where(and(eq(schema.projects.id, projectId), eq(schema.projects.organizationId, organizationId)))
+    .limit(1);
+  return !!row;
+}
+
+/**
+ * Time-series metric history for a project (connector-gathered data), grouped
+ * by metric name, over a trailing window (default 30d, max 365), downsampled.
+ */
+export async function queryMetrics(
+  db: Database,
+  organizationId: string,
+  projectId: string,
+  opts: { name?: string; windowDays?: number } = {},
+) {
+  if (!(await projectInOrg(db, organizationId, projectId))) {
+    return { error: "project not found or not visible to this token" };
+  }
+  const days = Math.min(Math.max(opts.windowDays ?? 30, 1), 365);
+  const since = new Date(Date.now() - days * WINDOW_DAY_MS);
+  const where = opts.name
+    ? and(eq(schema.metrics.projectId, projectId), gte(schema.metrics.observedAt, since), eq(schema.metrics.name, opts.name))
+    : and(eq(schema.metrics.projectId, projectId), gte(schema.metrics.observedAt, since));
+
+  const rows = await db
+    .select({
+      name: schema.metrics.name,
+      unit: schema.metrics.unit,
+      value: schema.metrics.value,
+      observedAt: schema.metrics.observedAt,
+    })
+    .from(schema.metrics)
+    .where(where)
+    .orderBy(schema.metrics.observedAt);
+
+  const byName = new Map<string, { unit: string | null; points: { t: string; v: number }[] }>();
+  for (const r of rows) {
+    const e = byName.get(r.name) ?? { unit: r.unit, points: [] };
+    e.points.push({ t: r.observedAt.toISOString(), v: r.value });
+    byName.set(r.name, e);
+  }
+  const cap = 200;
+  return [...byName.entries()].map(([name, { unit, points }]) => {
+    const step = points.length > cap ? Math.ceil(points.length / cap) : 1;
+    return { name, unit, points: points.filter((_, i) => i % step === 0) };
+  });
+}
+
+/** Domains in the org (optionally filtered to one project), with expiry + cost. */
+export async function listDomains(db: Database, organizationId: string, projectId?: string) {
+  if (projectId && !(await projectInOrg(db, organizationId, projectId))) {
+    return { error: "project not found or not visible to this token" };
+  }
+  const rows = await db
+    .select({
+      id: schema.domains.id,
+      fqdn: schema.domains.fqdn,
+      registrar: schema.domains.registrar,
+      expiresAt: schema.domains.expiresAt,
+      autoRenew: schema.domains.autoRenew,
+      renewalCost: schema.domains.renewalCost,
+      costCurrency: schema.domains.costCurrency,
+      projectId: schema.projectDomains.projectId,
+      primary: schema.projectDomains.primary,
+    })
+    .from(schema.domains)
+    .leftJoin(schema.projectDomains, eq(schema.projectDomains.domainId, schema.domains.id))
+    .where(eq(schema.domains.organizationId, organizationId));
+  const filtered = projectId ? rows.filter((r) => r.projectId === projectId) : rows;
+  return filtered.map((d) => ({
+    fqdn: d.fqdn,
+    registrar: d.registrar,
+    expiresAt: d.expiresAt,
+    autoRenew: d.autoRenew,
+    renewalCost: d.renewalCost,
+    currency: d.costCurrency,
+    projectId: d.projectId,
+    primary: d.primary ?? false,
+  }));
+}
+
+/** Open/acknowledged/resolved incidents in the org, newest first. */
+export async function listIncidents(db: Database, organizationId: string, status?: string) {
+  const valid = ["open", "acknowledged", "resolved"];
+  const where = status && valid.includes(status)
+    ? and(eq(schema.incidents.organizationId, organizationId), eq(schema.incidents.status, status as "open" | "acknowledged" | "resolved"))
+    : eq(schema.incidents.organizationId, organizationId);
+  const rows = await db
+    .select({
+      title: schema.incidents.title,
+      severity: schema.incidents.severity,
+      status: schema.incidents.status,
+      projectId: schema.incidents.projectId,
+      createdAt: schema.incidents.createdAt,
+      resolvedAt: schema.incidents.resolvedAt,
+    })
+    .from(schema.incidents)
+    .where(where)
+    .orderBy(desc(schema.incidents.createdAt))
+    .limit(100);
+  return rows.map((r) => ({
+    title: r.title,
+    severity: r.severity,
+    status: r.status,
+    projectId: r.projectId,
+    createdAt: r.createdAt.toISOString(),
+    resolvedAt: r.resolvedAt?.toISOString() ?? null,
+  }));
+}
+
+/** Lightweight finance summary: annual domain renewals + latest MRR, by currency. */
+export async function getFinanceSummary(db: Database, organizationId: string) {
+  const [org] = await db
+    .select({ baseCurrency: schema.organizations.baseCurrency })
+    .from(schema.organizations)
+    .where(eq(schema.organizations.id, organizationId))
+    .limit(1);
+
+  const domains = await db
+    .select({ renewalCost: schema.domains.renewalCost, currency: schema.domains.costCurrency })
+    .from(schema.domains)
+    .where(eq(schema.domains.organizationId, organizationId));
+  const annual: Record<string, number> = {};
+  for (const d of domains) {
+    if (d.renewalCost == null) continue;
+    const c = d.currency ?? "?";
+    annual[c] = Math.round(((annual[c] ?? 0) + d.renewalCost) * 100) / 100;
+  }
+
+  // Latest revenue.mrr per project (org-scoped), summed by currency.
+  const projIds = (
+    await db.select({ id: schema.projects.id }).from(schema.projects).where(eq(schema.projects.organizationId, organizationId))
+  ).map((p) => p.id);
+  const mrr: Record<string, number> = {};
+  if (projIds.length) {
+    const rows = await db
+      .select({ projectId: schema.metrics.projectId, value: schema.metrics.value, unit: schema.metrics.unit, observedAt: schema.metrics.observedAt })
+      .from(schema.metrics)
+      .where(and(eq(schema.metrics.name, "revenue.mrr"), inArray(schema.metrics.projectId, projIds)))
+      .orderBy(desc(schema.metrics.observedAt));
+    const seen = new Set<string>();
+    for (const r of rows) {
+      if (seen.has(r.projectId)) continue;
+      seen.add(r.projectId);
+      const c = r.unit ?? "?";
+      mrr[c] = Math.round(((mrr[c] ?? 0) + r.value) * 100) / 100;
+    }
+  }
+  return { baseCurrency: org?.baseCurrency ?? "USD", annualRenewalsByCurrency: annual, mrrByCurrency: mrr };
+}
