@@ -1,7 +1,9 @@
-import { Controller, Get, Query } from "@nestjs/common";
+import { Controller, Get, Query, UseGuards } from "@nestjs/common";
 import { SlaService } from "./sla.service.js";
+import { AuthGuard } from "../auth/auth.guard.js";
 
 @Controller("sla")
+@UseGuards(AuthGuard)
 export class SlaController {
   constructor(private readonly sla: SlaService) {}
 

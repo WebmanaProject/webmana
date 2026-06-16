@@ -1,7 +1,9 @@
-import { Controller, Get, Query } from "@nestjs/common";
+import { Controller, Get, Query, UseGuards } from "@nestjs/common";
 import { TimelineService } from "./timeline.service.js";
+import { AuthGuard } from "../auth/auth.guard.js";
 
 @Controller("timeline")
+@UseGuards(AuthGuard)
 export class TimelineController {
   constructor(private readonly timeline: TimelineService) {}
 
