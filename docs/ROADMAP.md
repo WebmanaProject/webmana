@@ -68,3 +68,29 @@ Pivot from a monitoring tool to a team portfolio hub, built in phases:
 
 Follow-ups still open: invitation emails via SMTP (tokens are surfaced in the UI
 for now), exportable SLA reports, and per-project notes/TODO.
+
+## Connector backlog
+
+Shipped connectors keep growing. Recently added: `godaddy`, `namecheap`
+(registrars), `email_auth` (SPF/DKIM/DMARC), `dnsbl` (blacklist), `cert_transparency`
+(crt.sh), `netlify` (deploy), `sentry` (errors), `plausible` (analytics).
+
+Candidate connectors to build next, grouped by tier:
+
+- **Registrars / DNS:** Porkbun, Gandi, AWS Route 53, DNSimple, Namesilo;
+  DNSSEC / propagation checks (keyless).
+- **Uptime / monitoring:** BetterStack (Better Uptime), Pingdom, StatusCake,
+  Checkly, Healthchecks.io (cron/backup dead-man's switch).
+- **Hosting / deploy:** Render, Fly.io, Railway, Cloudflare Pages, DigitalOcean
+  (App Platform).
+- **FinOps (beyond AWS):** GCP Billing, Azure Cost Management, Cloudflare billing,
+  Vercel usage, DigitalOcean billing, Hetzner.
+- **Security (deeper):** SSL Labs (Qualys TLS grade), Have I Been Pwned,
+  Google Safe Browsing / VirusTotal (domain reputation), Shodan (exposed services).
+- **Revenue / email:** Lemon Squeezy, Paddle, Polar.sh, PayPal, Gumroad;
+  Resend, Postmark, SendGrid (deliverability stats).
+- **CI/CD:** GitHub Actions workflow runs, GitLab CI, CircleCI.
+
+Recommended priority for the next batch: **Healthchecks.io** and **SSL Labs**
+(most tangible for the solo-founder audience), then a registrar round-out
+(Porkbun, Gandi).
