@@ -259,7 +259,6 @@ export default function DashboardPage() {
                         insight={insights.get(p.id)}
                         column={col}
                         dragging={dragId === p.id}
-                        onStatusChange={(s) => void changeStatus(p.id, s)}
                         onDragStart={() => setDragId(p.id)}
                         onDragEnd={() => {
                           setDragId(null);
@@ -466,7 +465,6 @@ function ProjectCard({
   insight,
   column,
   dragging,
-  onStatusChange,
   onDragStart,
   onDragEnd,
 }: {
@@ -474,7 +472,6 @@ function ProjectCard({
   insight: string | undefined;
   column: Column;
   dragging: boolean;
-  onStatusChange: (status: ProjectStatus) => void;
   onDragStart: () => void;
   onDragEnd: () => void;
 }) {
@@ -572,30 +569,12 @@ function ProjectCard({
         </p>
       )}
 
-      <div
-        data-no-nav
-        className="mt-2 flex items-center justify-between gap-2 pl-1.5"
-      >
-        <select
-          value={project.status}
-          aria-label="Change stage"
-          title="Change stage"
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={(e) => e.stopPropagation()}
-          onChange={(e) => onStatusChange(e.target.value as ProjectStatus)}
-          className="-ml-0.5 cursor-pointer rounded border border-transparent bg-transparent py-0.5 pl-1 pr-5 text-[10px] text-text-muted/70 transition hover:border-border hover:text-text focus:border-accent focus:outline-none"
-        >
-          {STATUS_OPTIONS.map((s) => (
-            <option key={s.value} value={s.value}>{s.label}</option>
-          ))}
-        </select>
-        {project.renewalCost != null && (
-          <span className="shrink-0 text-[10px] text-text-muted/80">
-            ↻ {project.renewalCost}
-            {project.costCurrency ? ` ${project.costCurrency}` : ""}/yr
-          </span>
-        )}
-      </div>
+      {project.renewalCost != null && (
+        <p className="mt-2 pl-1.5 text-[10px] text-text-muted/80">
+          ↻ {project.renewalCost}
+          {project.costCurrency ? ` ${project.costCurrency}` : ""}/yr
+        </p>
+      )}
     </article>
   );
 }
