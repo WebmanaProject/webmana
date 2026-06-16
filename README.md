@@ -24,9 +24,9 @@ uptime tools.
   cloud month-to-date spend, and a full cost breakdown.
 - **Monitoring connectors** — uptime, SSL, WHOIS, DNS, GoDaddy, Namecheap,
   email auth (SPF/DKIM/DMARC), blacklist (DNSBL), Certificate Transparency,
-  PageSpeed, Cloudflare, GA4, UptimeRobot, Datadog, Snyk, AWS Cost, GitHub,
-  Vercel — and **your own**, via a separate Apache-2.0 SDK (see
-  [Connectors](#connectors)). Many need **no API keys**.
+  PageSpeed, Cloudflare, GA4, Plausible, UptimeRobot, Datadog, Snyk, AWS Cost,
+  GitHub, Vercel, Netlify, Sentry, Stripe — and **your own**, via a separate
+  Apache-2.0 SDK (see [Connectors](#connectors)). Many need **no API keys**.
 - **Alerting** — rules per project with webhook, Slack, and email channels, plus
   cost-anomaly and domain-expiry detection.
 - **Teams & RBAC** — local accounts, roles (admin / editor / viewer), email

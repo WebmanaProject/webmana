@@ -23,6 +23,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     listing that hurts deliverability.
   - `cert_transparency` — queries crt.sh for certificates issued for the domain
     and surfaces newly issued certificates so a rogue/unexpected one is noticed.
+- **Deploy/errors/analytics connectors**:
+  - `netlify` — latest deploy state and age (closes the open Netlify follow-up
+    alongside Vercel); critical event on a failed deploy.
+  - `sentry` — received-event counts over 24h and the last hour (self-hosted base
+    URL supported); optional per-hour error-spike warning.
+  - `plausible` — visitors, pageviews, bounce rate, and visit duration
+    (privacy-friendly analytics; self-hosted base URL supported). `site_id`
+    defaults to the project domain.
 
 ## [0.2.0] - 2026-06-16
 
