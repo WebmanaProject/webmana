@@ -84,6 +84,8 @@ interface CatalogItem {
   category: string;
   authKind: "none" | "api_key" | "oauth2";
   verified: boolean;
+  docsUrl?: string;
+  apiKeyUrl?: string;
   actions: { id: string; title: string; destructive: boolean }[];
 }
 
@@ -1068,6 +1070,31 @@ function ConnectorsPanel({
               onChange={(e) => setSecretsText(e.target.value)}
             />
           </div>
+          {selected?.requiresSecrets && (selected.apiKeyUrl || selected.docsUrl) && (
+            <p className="mt-2 text-xs text-text-muted">
+              {selected.apiKeyUrl && (
+                <a
+                  href={selected.apiKeyUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-accent-strong hover:underline"
+                >
+                  Get your {selected.vendor} API key →
+                </a>
+              )}
+              {selected.apiKeyUrl && selected.docsUrl && <span className="mx-2 text-text-muted/50">·</span>}
+              {selected.docsUrl && (
+                <a
+                  href={selected.docsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-text hover:underline"
+                >
+                  Setup docs
+                </a>
+              )}
+            </p>
+          )}
         </div>
       </div>
     </details>

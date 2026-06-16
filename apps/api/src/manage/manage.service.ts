@@ -76,6 +76,8 @@ export interface ConnectorCatalogItem {
   authKind: "none" | "api_key" | "oauth2";
   verified: boolean;
   docsUrl?: string;
+  /** Direct link to where the provider's API key / token is created. */
+  apiKeyUrl?: string;
   actions: { id: string; title: string; destructive: boolean }[];
 }
 
@@ -97,6 +99,25 @@ const BUILTIN_CATEGORY: Record<string, string> = {
   github: "deploy",
   vercel: "deploy",
   stripe: "revenue",
+};
+
+/** Direct "create your API key/token" pages for built-in API-key connectors. */
+const BUILTIN_API_KEY_URL: Record<string, string> = {
+  cloudflare: "https://dash.cloudflare.com/profile/api-tokens",
+  pagespeed: "https://console.cloud.google.com/apis/credentials",
+  uptimerobot: "https://dashboard.uptimerobot.com/integrations",
+  ga4: "https://console.cloud.google.com/apis/credentials",
+  datadog: "https://app.datadoghq.com/organization-settings/api-keys",
+  snyk: "https://app.snyk.io/account",
+  aws_cost: "https://console.aws.amazon.com/iam/home#/security_credentials",
+  github: "https://github.com/settings/tokens",
+  vercel: "https://vercel.com/account/tokens",
+  stripe: "https://dashboard.stripe.com/apikeys",
+  godaddy: "https://developer.godaddy.com/keys",
+  namecheap: "https://ap.www.namecheap.com/settings/tools/apiaccess/",
+  netlify: "https://app.netlify.com/user/applications#personal-access-tokens",
+  sentry: "https://sentry.io/settings/account/api/auth-tokens/",
+  plausible: "https://plausible.io/settings#api-keys",
 };
 
 export interface CreateAlertRuleInput {
@@ -313,6 +334,7 @@ export class ManageService {
         authKind: c.auth?.kind ?? (c.requiresSecrets ? "api_key" : "none"),
         verified: c.meta?.verified ?? isBuiltInConnector(c.id),
         docsUrl: c.meta?.docsUrl,
+        apiKeyUrl: c.meta?.apiKeyUrl ?? BUILTIN_API_KEY_URL[c.id],
         actions: (c.actions ?? []).map((a) => ({
           id: a.id,
           title: a.title,
