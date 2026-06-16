@@ -216,7 +216,7 @@ export default function DashboardPage() {
       ) : projects.length === 0 ? (
         <OnboardingHero onStart={() => setShowAdd(true)} />
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
+        <div className="flex flex-col gap-3 lg:flex-row lg:overflow-x-auto lg:pb-2">
           {COLUMNS.map((col) => {
             const inCol = visible.filter((p) => p.status === col.status);
             const isOver = dragOver === col.status;
@@ -232,7 +232,7 @@ export default function DashboardPage() {
                   if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(null);
                 }}
                 onDrop={() => onDrop(col.status)}
-                className={`flex max-h-[calc(100vh-220px)] flex-col rounded-xl border p-2 transition ${
+                className={`flex flex-col rounded-xl border p-2 transition lg:max-h-[calc(100vh-200px)] lg:w-[17rem] lg:shrink-0 ${
                   isOver ? "border-accent bg-accent/5" : "border-border/70 bg-bg-subtle/40"
                 }`}
               >
@@ -259,6 +259,7 @@ export default function DashboardPage() {
                         insight={insights.get(p.id)}
                         column={col}
                         dragging={dragId === p.id}
+                        onStatusChange={(s) => void changeStatus(p.id, s)}
                         onDragStart={() => setDragId(p.id)}
                         onDragEnd={() => {
                           setDragId(null);
@@ -465,6 +466,7 @@ function ProjectCard({
   insight,
   column,
   dragging,
+  onStatusChange,
   onDragStart,
   onDragEnd,
 }: {
@@ -472,6 +474,7 @@ function ProjectCard({
   insight: string | undefined;
   column: Column;
   dragging: boolean;
+  onStatusChange: (status: ProjectStatus) => void;
   onDragStart: () => void;
   onDragEnd: () => void;
 }) {
@@ -569,12 +572,30 @@ function ProjectCard({
         </p>
       )}
 
-      {project.renewalCost != null && (
-        <p className="mt-2 pl-1.5 text-[10px] text-text-muted/80">
-          ↻ {project.renewalCost}
-          {project.costCurrency ? ` ${project.costCurrency}` : ""}/yr
-        </p>
-      )}
+      <div
+        data-no-nav
+        className="mt-2 flex items-center justify-between gap-2 pl-1.5"
+      >
+        <select
+          value={project.status}
+          aria-label="Change stage"
+          title="Change stage"
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+          onChange={(e) => onStatusChange(e.target.value as ProjectStatus)}
+          className="-ml-0.5 cursor-pointer rounded border border-transparent bg-transparent py-0.5 pl-1 pr-5 text-[10px] text-text-muted/70 transition hover:border-border hover:text-text focus:border-accent focus:outline-none"
+        >
+          {STATUS_OPTIONS.map((s) => (
+            <option key={s.value} value={s.value}>{s.label}</option>
+          ))}
+        </select>
+        {project.renewalCost != null && (
+          <span className="shrink-0 text-[10px] text-text-muted/80">
+            ↻ {project.renewalCost}
+            {project.costCurrency ? ` ${project.costCurrency}` : ""}/yr
+          </span>
+        )}
+      </div>
     </article>
   );
 }
