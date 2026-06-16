@@ -492,3 +492,31 @@ export const mcpTokens = pgTable("mcp_tokens", {
   revokedAt: timestamp("revoked_at", { withTimezone: true }),
   createdAt: createdAt(),
 });
+
+/* ------------------------------------------------------------------- AI ----- */
+
+/**
+ * Per-organization AI provider settings for insights and the assistant.
+ * Provider-agnostic: Anthropic, or any OpenAI-compatible endpoint (incl.
+ * self-hosted via `baseUrl`). The API key is encrypted at rest (AES-256-GCM),
+ * never returned to clients.
+ */
+export const aiSettings = pgTable("ai_settings", {
+  id: id(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" })
+    .unique(),
+  /** "anthropic" or "openai" (any OpenAI-compatible endpoint). */
+  provider: text("provider").notNull().default("anthropic"),
+  /** Override base URL for self-hosted / OpenAI-compatible servers. */
+  baseUrl: text("base_url"),
+  /** Model id; falls back to a per-provider default when empty. */
+  model: text("model"),
+  /** Encrypted API key blob (AES-256-GCM via @webmana/crypto). */
+  apiKeyEncrypted: text("api_key_encrypted"),
+  /** Master switch; insights + assistant are off until enabled with a key. */
+  enabled: boolean("enabled").notNull().default(false),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});

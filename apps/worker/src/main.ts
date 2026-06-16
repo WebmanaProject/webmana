@@ -11,7 +11,7 @@ import {
 import { decryptSecrets } from "@webmana/crypto";
 import { evaluateAlerts } from "./alerts.js";
 import { detectCostAnomalies } from "./cost-anomaly.js";
-import { generateInsights, insightsIntervalMs, readAiConfig } from "./insights.js";
+import { generateInsights, insightsIntervalMs } from "./insights.js";
 import { sendWeeklyDigest, digestIntervalMs } from "./digest.js";
 import { escalateStaleIncidents, escalationIntervalMs } from "./escalation.js";
 import { checkDomainExpiry } from "./domain-expiry.js";
@@ -262,8 +262,9 @@ worker.on("ready", async () => {
     { repeat: { every: escalationIntervalMs() }, jobId: "escalation" },
   );
 
-  // Scheduled AI insight generation (only when a provider key is configured).
-  if (readAiConfig()) {
+  // Scheduled AI insight generation. Always scheduled; each run no-ops unless a
+  // provider is configured via env or Settings → AI (resolved at run time).
+  {
     const every = insightsIntervalMs();
     await syncQueue.add("insights", {}, { repeat: { every }, jobId: "insights" });
     await syncQueue.add(
@@ -271,7 +272,7 @@ worker.on("ready", async () => {
       {},
       { jobId: "insights-boot", removeOnComplete: true },
     );
-    console.log(`Webmana AI insights enabled (every ${Math.round(every / 60000)}m)`);
+    console.log(`Webmana AI insights scheduled (every ${Math.round(every / 60000)}m)`);
   }
 });
 

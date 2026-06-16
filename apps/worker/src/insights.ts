@@ -1,5 +1,6 @@
 import { and, desc, eq, gte, inArray } from "drizzle-orm";
 import { schema, type Database } from "@webmana/db";
+import { decryptSecrets } from "@webmana/crypto";
 
 /**
  * AI insight generation.
@@ -36,12 +37,44 @@ export function readAiConfig(env: NodeJS.ProcessEnv = process.env): AiConfig | n
   const provider = env.AI_PROVIDER === "openai" ? "openai" : "anthropic";
   const model =
     env.AI_MODEL?.trim() ||
-    (provider === "openai" ? "gpt-4o-mini" : "claude-3-5-haiku-latest");
+    (provider === "openai" ? "gpt-4o-mini" : "claude-opus-4-8");
   const baseUrl =
     env.AI_BASE_URL?.trim() ||
     (provider === "openai" ? "https://api.openai.com/v1" : "https://api.anthropic.com");
 
   return { provider, apiKey, model, baseUrl };
+}
+
+/**
+ * Resolve AI config from the database (Settings → AI), falling back to env.
+ * Lets a UI-configured, encrypted key drive insights without an env/restart.
+ */
+export async function resolveAiConfig(
+  db: Database,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<AiConfig | null> {
+  try {
+    const [row] = await db.select().from(schema.aiSettings).limit(1);
+    if (row?.enabled && row.apiKeyEncrypted) {
+      const apiKey = decryptSecrets(row.apiKeyEncrypted).apiKey ?? "";
+      if (apiKey) {
+        const provider = row.provider === "openai" ? "openai" : "anthropic";
+        return {
+          provider,
+          apiKey,
+          model:
+            row.model?.trim() ||
+            (provider === "openai" ? "gpt-4o-mini" : "claude-opus-4-8"),
+          baseUrl:
+            row.baseUrl?.trim() ||
+            (provider === "openai" ? "https://api.openai.com/v1" : "https://api.anthropic.com"),
+        };
+      }
+    }
+  } catch {
+    // table missing / decrypt failure → fall back to env
+  }
+  return readAiConfig(env);
 }
 
 export function insightsIntervalMs(env: NodeJS.ProcessEnv = process.env): number {
@@ -164,7 +197,7 @@ async function generateSummary(
  * disabled (no-op). Failures for one project never abort the others.
  */
 export async function generateInsights(db: Database, now: Date): Promise<number> {
-  const cfg = readAiConfig();
+  const cfg = await resolveAiConfig(db);
   if (!cfg) return 0;
 
   const projectRows = await db

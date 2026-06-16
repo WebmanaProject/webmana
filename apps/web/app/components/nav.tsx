@@ -66,6 +66,16 @@ export const NAV_ITEMS: NavItem[] = [
     ),
   },
   {
+    href: "/assistant",
+    label: "Assistant",
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-5 w-5" {...s}>
+        <path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.6-.8L3 21l1.3-3.9A8.38 8.38 0 0 1 3.5 11.5 8.5 8.5 0 0 1 12 3a8.38 8.38 0 0 1 8.5 8.5z" />
+        <path d="M8.5 11.5h.01M12 11.5h.01M15.5 11.5h.01" />
+      </svg>
+    ),
+  },
+  {
     href: "/settings",
     label: "Settings",
     icon: (
