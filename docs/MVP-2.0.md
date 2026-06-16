@@ -243,7 +243,7 @@ incidents past a threshold are escalated once); **weekly portfolio digest**
 (carried from M2). Deferred: status-page subscribers/custom domain, AI-written
 digest copy (the digest ships as a plain summary; AI flavour is optional later).
 
-### M5 — SDK v2 + Actions framework **[BOTH]** — 🟡 in progress
+### M5 — SDK v2 + Actions framework **[BOTH]** — ✅ shipped (core)
 Capabilities/actions/OAuth in the SDK; audit log + action UI in the app; a safe
 starter action set; MCP write tools.
 
@@ -254,9 +254,11 @@ framework** in the app — per-instance capability grants (`enabled_actions`),
 dispatch that enforces grant + RBAC + audit + input validation + timeline event,
 and a project-page UI to grant/run actions; **MCP write tools**
 (`list_connector_actions` + RBAC-gated `run_connector_action`, audited).
-Verified live (run blocked before grant; dispatched after; viewer MCP tokens
-can't run). Remaining: OAuth connector base, connector marketplace UI, more
-connectors/actions.
+**connector marketplace metadata** (category/vendor/auth/verified/actions in the
+catalog + picker). Verified live (run blocked before grant; dispatched after;
+viewer MCP tokens can't run; enriched catalog). Deferred: full OAuth2 connector
+flow (the `auth: oauth2` descriptor exists; the authorize/callback/refresh flow
+needs a real provider to build against) and a dedicated marketplace page.
 
 ### M6 — Tenancy, SSO, Marketplace, Platform ops **[APP]** + connector wave **[CONN]**
 Multi-org, OIDC/SSO, REST API keys, connector marketplace UI, OpenTelemetry,
