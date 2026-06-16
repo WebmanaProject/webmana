@@ -14,6 +14,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   flag** — registrar-side data the keyless WHOIS connector can't see. Both emit a
   `days_until_expiry` metric and escalate the expiry event to critical when
   auto-renew is off.
+- **Keyless deliverability/security connectors** (no API keys):
+  - `email_auth` — checks SPF, DKIM, and DMARC DNS records and scores the
+    domain's email authentication; warns on missing DMARC/SPF and a dangerous
+    `+all` SPF policy.
+  - `dnsbl` — checks the domain's A records (and the domain itself) against
+    DNS blocklists (Spamhaus, Barracuda, SpamCop); raises a critical event on a
+    listing that hurts deliverability.
+  - `cert_transparency` — queries crt.sh for certificates issued for the domain
+    and surfaces newly issued certificates so a rogue/unexpected one is noticed.
 
 ## [0.2.0] - 2026-06-16
 
