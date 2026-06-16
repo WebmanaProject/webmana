@@ -6,17 +6,6 @@ import { AiSettings } from "./AiSettings";
 
 const ROLES = ["admin", "editor", "viewer"];
 
-/** Compact relative time, e.g. "5m ago". Full timestamp goes in a title attr. */
-function relativeTime(iso: string): string {
-  const s = Math.round((Date.now() - new Date(iso).getTime()) / 1000);
-  if (s < 60) return `${Math.max(s, 0)}s ago`;
-  const m = Math.round(s / 60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.round(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.round(h / 24)}d ago`;
-}
-
 interface Member {
   userId: string;
   email: string;
@@ -47,15 +36,6 @@ const CHANNEL_TARGET_KEY: Record<AlertChannel["kind"], string> = {
   slack: "webhookUrl",
   email: "to",
 };
-interface AuditEntry {
-  id: string;
-  actorEmail: string | null;
-  actorRole: string | null;
-  action: string;
-  targetId: string | null;
-  statusCode: number;
-  createdAt: string;
-}
 
 export default function SettingsPage() {
   const { user, loading: authLoading } = useRequireAuth();
@@ -63,11 +43,6 @@ export default function SettingsPage() {
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [tokens, setTokens] = useState<McpToken[]>([]);
   const [channels, setChannels] = useState<AlertChannel[]>([]);
-  const [audit, setAudit] = useState<AuditEntry[]>([]);
-  const [auditHasMore, setAuditHasMore] = useState(false);
-  const [auditQuery, setAuditQuery] = useState("");
-  const [auditStatus, setAuditStatus] = useState<"all" | "ok" | "err">("all");
-  const [auditLoadingMore, setAuditLoadingMore] = useState(false);
   const [importMsg, setImportMsg] = useState<string | null>(null);
   const [fx, setFx] = useState<{ baseCurrency: string; rates: { currency: string; rateToBase: number }[] }>({ baseCurrency: "USD", rates: [] });
   const [baseCcy, setBaseCcy] = useState("USD");
@@ -117,12 +92,6 @@ export default function SettingsPage() {
       setFx(f);
       setBaseCcy(f.baseCurrency);
     }
-    const aRes = await authFetch("/api/audit?limit=50");
-    if (aRes.ok) {
-      const rows = (await aRes.json()) as AuditEntry[];
-      setAudit(rows);
-      setAuditHasMore(rows.length === 50);
-    }
     const kRes = await authFetch("/api/org/api-keys");
     if (kRes.ok) setApiKeys((await kRes.json()) as { id: string; name: string; role: string; lastUsedAt: string | null }[]);
   }, []);
@@ -141,20 +110,6 @@ export default function SettingsPage() {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
-    }
-  }
-
-  async function loadMoreAudit() {
-    setAuditLoadingMore(true);
-    try {
-      const res = await authFetch(`/api/audit?limit=50&offset=${audit.length}`);
-      if (res.ok) {
-        const rows = (await res.json()) as AuditEntry[];
-        setAudit((prev) => [...prev, ...rows]);
-        setAuditHasMore(rows.length === 50);
-      }
-    } finally {
-      setAuditLoadingMore(false);
     }
   }
 
@@ -282,17 +237,6 @@ export default function SettingsPage() {
       ? `${window.location.origin}/invite?token=${inviteToken}`
       : null;
 
-  const auditQ = auditQuery.trim().toLowerCase();
-  const filteredAudit = audit.filter((a) => {
-    if (auditStatus === "ok" && a.statusCode >= 400) return false;
-    if (auditStatus === "err" && a.statusCode < 400) return false;
-    if (auditQ) {
-      const hay = `${a.actorEmail ?? "system"} ${a.action} ${a.targetId ?? ""}`.toLowerCase();
-      if (!hay.includes(auditQ)) return false;
-    }
-    return true;
-  });
-
   return (
     <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
       <div className="mb-6">
@@ -308,7 +252,7 @@ export default function SettingsPage() {
             ["#tokens", "MCP tokens"],
             ["#apikeys", "API keys"],
             ["#backup", "Backup"],
-            ["#audit", "Audit log"],
+            ["/settings/audit", "Audit log"],
           ].map(([href, label]) => (
             <a
               key={href}
@@ -594,86 +538,20 @@ export default function SettingsPage() {
 
       {/* Audit log */}
       <section id="audit" className="mt-8 scroll-mt-20 rounded-2xl border border-border bg-surface p-6 shadow-sm">
-        <h2 className="mb-1 text-lg font-semibold">Audit log</h2>
-        <p className="mb-4 text-sm text-text-muted">Recent changes — who did what, and the result.</p>
-
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <input
-            value={auditQuery}
-            onChange={(e) => setAuditQuery(e.target.value)}
-            placeholder="Search actor, action, target…"
-            className="min-w-[14rem] flex-1 rounded-lg border border-border bg-bg px-3 py-2 text-sm"
-          />
-          <select
-            value={auditStatus}
-            onChange={(e) => setAuditStatus(e.target.value as typeof auditStatus)}
-            className="rounded-lg border border-border bg-bg px-3 py-2 text-sm"
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="mb-1 text-lg font-semibold">Audit log</h2>
+            <p className="text-sm text-text-muted">
+              Every change — who did what, and the result — browsable page by page.
+            </p>
+          </div>
+          <a
+            href="/settings/audit"
+            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-ink transition hover:brightness-95"
           >
-            <option value="all">All results</option>
-            <option value="ok">Success only</option>
-            <option value="err">Errors only</option>
-          </select>
+            Open audit log →
+          </a>
         </div>
-
-        {audit.length === 0 ? (
-          <p className="text-sm text-text-muted">No activity recorded yet.</p>
-        ) : filteredAudit.length === 0 ? (
-          <p className="text-sm text-text-muted">No entries match your filter.</p>
-        ) : (
-          <>
-            <div className="overflow-x-auto rounded-lg border border-border">
-              <table className="w-full min-w-[40rem] text-sm">
-                <thead className="bg-bg-subtle text-left text-xs uppercase tracking-wide text-text-muted">
-                  <tr>
-                    <th className="px-3 py-2">When</th>
-                    <th className="px-3 py-2">Actor</th>
-                    <th className="px-3 py-2">Action</th>
-                    <th className="px-3 py-2">Target</th>
-                    <th className="px-3 py-2 text-right">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredAudit.map((a) => (
-                    <tr key={a.id} className="border-t border-border align-top">
-                      <td
-                        className="whitespace-nowrap px-3 py-2 text-xs text-text-muted"
-                        title={new Date(a.createdAt).toLocaleString()}
-                      >
-                        {relativeTime(a.createdAt)}
-                      </td>
-                      <td className="px-3 py-2">
-                        {a.actorEmail ?? "system"}{" "}
-                        {a.actorRole && <span className="text-xs text-text-muted">({a.actorRole})</span>}
-                      </td>
-                      <td className="px-3 py-2 font-mono text-xs">{a.action}</td>
-                      <td className="px-3 py-2 font-mono text-xs text-text-muted" title={a.targetId ?? undefined}>
-                        {a.targetId ? a.targetId.slice(0, 8) : "—"}
-                      </td>
-                      <td className={`px-3 py-2 text-right tabular-nums ${a.statusCode >= 400 ? "text-red-600" : "text-text-muted"}`}>
-                        {a.statusCode}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="mt-3 flex items-center justify-between text-xs text-text-muted">
-              <span>
-                Showing {filteredAudit.length} of {audit.length} loaded
-                {auditQ || auditStatus !== "all" ? " (filtered)" : ""}.
-              </span>
-              {auditHasMore && (
-                <button
-                  onClick={() => void loadMoreAudit()}
-                  disabled={auditLoadingMore}
-                  className="rounded-lg border border-border px-3 py-1.5 hover:border-accent disabled:opacity-50"
-                >
-                  {auditLoadingMore ? "Loading…" : "Load more"}
-                </button>
-              )}
-            </div>
-          </>
-        )}
       </section>
     </main>
   );

@@ -11,10 +11,22 @@ export class AuditController {
   /** Recent audit entries — admin only. Supports limit + offset paging. */
   @Get()
   @Roles("admin")
-  list(@Query("limit") limit?: string, @Query("offset") offset?: string) {
+  list(
+    @Query("limit") limit?: string,
+    @Query("offset") offset?: string,
+    @Query("status") status?: string,
+  ) {
     return this.audit.list(
       limit ? Number(limit) : undefined,
       offset ? Number(offset) : undefined,
+      status === "err",
     );
+  }
+
+  /** Total entry count (for pagination) — admin only. */
+  @Get("count")
+  @Roles("admin")
+  count(@Query("status") status?: string) {
+    return this.audit.count(status === "err").then((total) => ({ total }));
   }
 }
