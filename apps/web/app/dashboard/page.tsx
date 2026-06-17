@@ -216,7 +216,7 @@ export default function DashboardPage() {
       ) : projects.length === 0 ? (
         <OnboardingHero onStart={() => setShowAdd(true)} />
       ) : (
-        <div className="flex flex-col gap-3 lg:flex-row lg:overflow-x-auto lg:pb-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           {COLUMNS.map((col) => {
             const inCol = visible.filter((p) => p.status === col.status);
             const isOver = dragOver === col.status;
@@ -232,7 +232,7 @@ export default function DashboardPage() {
                   if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(null);
                 }}
                 onDrop={() => onDrop(col.status)}
-                className={`flex flex-col rounded-xl border p-2 transition lg:max-h-[calc(100vh-200px)] lg:w-[17rem] lg:shrink-0 ${
+                className={`flex max-h-[calc(100vh-220px)] flex-col rounded-xl border p-2 transition ${
                   isOver ? "border-accent bg-accent/5" : "border-border/70 bg-bg-subtle/40"
                 }`}
               >
