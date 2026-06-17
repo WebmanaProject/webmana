@@ -18,6 +18,40 @@ const METRIC_TITLES: Record<string, string> = {
 };
 const metricTitle = (name: string) => METRIC_TITLES[name] ?? name;
 
+/** One-click external tools for a domain — no connector or key required. */
+function externalChecks(domain: string): { label: string; url: string }[] {
+  const d = encodeURIComponent(domain);
+  const https = encodeURIComponent(`https://${domain}`);
+  return [
+    { label: "PageSpeed", url: `https://pagespeed.web.dev/analysis?url=${https}` },
+    { label: "SSL Labs", url: `https://www.ssllabs.com/ssltest/analyze.html?d=${d}` },
+    { label: "VirusTotal", url: `https://www.virustotal.com/gui/domain/${d}` },
+    { label: "Safe Browsing", url: `https://transparencyreport.google.com/safe-browsing/search?url=${d}` },
+    { label: "Security headers", url: `https://securityheaders.com/?q=${https}&followRedirects=on` },
+    { label: "Cert Transparency", url: `https://crt.sh/?q=${d}` },
+    { label: "WHOIS", url: `https://who.is/whois/${d}` },
+    { label: "DNS / Mail", url: `https://mxtoolbox.com/SuperTool.aspx?action=mx%3a${d}` },
+  ];
+}
+
+/** Link a known metric value to its tool's live report for the domain, or null. */
+function metricReportUrl(name: string, domain: string | null): string | null {
+  if (!domain) return null;
+  const d = encodeURIComponent(domain);
+  const https = encodeURIComponent(`https://${domain}`);
+  if (name.startsWith("pagespeed")) return `https://pagespeed.web.dev/analysis?url=${https}`;
+  if (name.startsWith("ssl")) return `https://www.ssllabs.com/ssltest/analyze.html?d=${d}`;
+  if (name.startsWith("whois")) return `https://who.is/whois/${d}`;
+  if (name.startsWith("dns")) return `https://mxtoolbox.com/SuperTool.aspx?action=dns%3a${d}`;
+  if (name.startsWith("cert_transparency")) return `https://crt.sh/?q=${d}`;
+  if (name.startsWith("dnsbl")) return "https://mxtoolbox.com/blacklists.aspx";
+  if (name.startsWith("email_auth")) return `https://mxtoolbox.com/SuperTool.aspx?action=spf%3a${d}`;
+  if (name.startsWith("observatory") || name.includes("security")) {
+    return `https://developer.mozilla.org/en-US/observatory/analyze?host=${d}`;
+  }
+  return null;
+}
+
 type ProjectStatus =
   | "idea"
   | "in_progress"
@@ -324,6 +358,25 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       )}
 
       {/* ---- Detail dashboard (read-only) ---- */}
+      {primaryDomain && (
+        <section className="card mb-6 p-4">
+          <h2 className="mb-3 text-sm font-semibold">External tools</h2>
+          <div className="flex flex-wrap gap-2">
+            {externalChecks(primaryDomain.fqdn).map((t) => (
+              <a
+                key={t.label}
+                href={t.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-lg border border-border bg-bg-subtle px-2.5 py-1 text-xs text-text-muted transition hover:border-accent hover:text-accent-strong"
+              >
+                {t.label} ↗
+              </a>
+            ))}
+          </div>
+        </section>
+      )}
+
       {project.connectors.length > 0 && (
         <section className="card mb-6 p-4">
           <h2 className="mb-3 text-sm font-semibold">Connectors</h2>
@@ -419,12 +472,28 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               <p className="text-sm text-text-muted">No metrics yet.</p>
             ) : (
               <ul className="space-y-1 text-sm">
-                {live.metrics.map((m) => (
-                  <li key={m.name} className="flex justify-between">
-                    <span className="text-text-muted">{m.name}</span>
-                    <span className="font-medium">{m.value}{m.unit ? ` ${m.unit}` : ""}</span>
-                  </li>
-                ))}
+                {live.metrics.map((m) => {
+                  const reportUrl = metricReportUrl(m.name, primaryDomain?.fqdn ?? null);
+                  const value = `${m.value}${m.unit ? ` ${m.unit}` : ""}`;
+                  return (
+                    <li key={m.name} className="flex justify-between">
+                      <span className="text-text-muted">{m.name}</span>
+                      {reportUrl ? (
+                        <a
+                          href={reportUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium text-accent-strong hover:underline"
+                          title="Open report"
+                        >
+                          {value} ↗
+                        </a>
+                      ) : (
+                        <span className="font-medium">{value}</span>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </section>
@@ -833,6 +902,12 @@ function EditDetails({
   const [name, setName] = useState(project.name);
   const [description, setDescription] = useState(project.description ?? "");
   const [tags, setTags] = useState(project.tags.join(", "));
+  const [links, setLinks] = useState<[string, string][]>(() =>
+    Object.entries(project.links ?? {}),
+  );
+
+  const setLink = (i: number, idx: 0 | 1, val: string) =>
+    setLinks((prev) => prev.map((pair, j) => (j === i ? (idx === 0 ? [val, pair[1]] : [pair[0], val]) : pair)));
 
   const save = () =>
     run(() =>
@@ -842,6 +917,11 @@ function EditDetails({
           name,
           description,
           tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
+          links: Object.fromEntries(
+            links
+              .map(([k, v]) => [k.trim(), v.trim()] as [string, string])
+              .filter(([k, v]) => k && v),
+          ),
         }),
       }),
     );
@@ -877,6 +957,44 @@ function EditDetails({
           />
         </label>
       </div>
+
+      <div className="mt-4">
+        <div className="mb-1.5 text-xs font-medium text-text-muted">
+          Links <span className="font-normal text-text-muted/60">(social, ads, repo, dashboard…)</span>
+        </div>
+        <div className="flex flex-col gap-2">
+          {links.map(([k, v], i) => (
+            <div key={i} className="flex flex-wrap gap-2">
+              <input
+                className="input w-40 text-sm"
+                value={k}
+                onChange={(e) => setLink(i, 0, e.target.value)}
+                placeholder="Label (e.g. Twitter)"
+              />
+              <input
+                className="input min-w-[12rem] flex-1 font-mono text-xs"
+                value={v}
+                onChange={(e) => setLink(i, 1, e.target.value)}
+                placeholder="https://…"
+              />
+              <button
+                onClick={() => setLinks((prev) => prev.filter((_, j) => j !== i))}
+                className="rounded border border-red-200 px-2 text-xs text-red-600 hover:bg-red-50"
+                aria-label="Remove link"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+        <button
+          onClick={() => setLinks((prev) => [...prev, ["", ""]])}
+          className="mt-2 text-xs font-medium text-accent-strong hover:underline"
+        >
+          + Add link
+        </button>
+      </div>
+
       <p className="mt-3 text-xs text-text-muted">
         Costs (purchase &amp; renewal) live on each domain — edit them in the Domains section above.
       </p>
