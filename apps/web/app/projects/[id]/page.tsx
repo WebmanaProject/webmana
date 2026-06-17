@@ -120,6 +120,8 @@ interface CatalogItem {
   verified: boolean;
   docsUrl?: string;
   apiKeyUrl?: string;
+  secretFields?: { key: string; label: string }[];
+  configFields?: { key: string; label: string; placeholder?: string }[];
   actions: { id: string; title: string; destructive: boolean }[];
 }
 
@@ -1022,20 +1024,36 @@ function ConnectorsPanel({
   run: (fn: () => Promise<unknown>) => Promise<void>;
 }) {
   const [connId, setConnId] = useState(catalog[0]?.id ?? "");
-  const [configText, setConfigText] = useState("");
-  const [secretsText, setSecretsText] = useState("");
+  const [configVals, setConfigVals] = useState<Record<string, string>>({});
+  const [secretVals, setSecretVals] = useState<Record<string, string>>({});
+  const [configText, setConfigText] = useState(""); // advanced extra-config JSON
+  const [secretsText, setSecretsText] = useState(""); // raw JSON for unknown connectors
   const selected = catalog.find((c) => c.id === connId);
+
+  function selectConnector(id: string) {
+    setConnId(id);
+    setConfigVals({});
+    setSecretVals({});
+    setConfigText("");
+    setSecretsText("");
+  }
 
   const add = () =>
     run(async () => {
       let config: Record<string, unknown> = {};
       let secrets: Record<string, string> = {};
-      if (configText.trim()) config = JSON.parse(configText) as Record<string, unknown>;
-      if (secretsText.trim()) secrets = JSON.parse(secretsText) as Record<string, string>;
+      for (const [k, v] of Object.entries(configVals)) if (v.trim()) config[k] = v.trim();
+      for (const [k, v] of Object.entries(secretVals)) if (v.trim()) secrets[k] = v.trim();
+      // Advanced raw JSON merges over the named fields (extra/optional config, or
+      // secrets for an unknown connector).
+      if (configText.trim()) config = { ...config, ...(JSON.parse(configText) as Record<string, unknown>) };
+      if (secretsText.trim()) secrets = { ...secrets, ...(JSON.parse(secretsText) as Record<string, string>) };
       await api(`/manage/projects/${project.id}/connectors`, {
         method: "POST",
         body: JSON.stringify({ connectorId: connId, config, secrets }),
       });
+      setConfigVals({});
+      setSecretVals({});
       setConfigText("");
       setSecretsText("");
     });
@@ -1154,7 +1172,7 @@ function ConnectorsPanel({
 
         <div className="rounded-lg border border-dashed border-border p-3">
           <div className="flex flex-wrap items-center gap-2">
-            <select className="input" value={connId} onChange={(e) => setConnId(e.target.value)}>
+            <select className="input" value={connId} onChange={(e) => selectConnector(e.target.value)}>
               {catalog.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.category} · {c.title}
@@ -1168,26 +1186,52 @@ function ConnectorsPanel({
               Add / update
             </button>
           </div>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+
+          {/* Named config fields (when the connector requires them) */}
+          {selected?.configFields?.length ? (
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {selected.configFields.map((f) => (
+                <label key={f.key} className="text-xs font-medium text-text-muted">
+                  {f.label}
+                  <input
+                    className="input mt-1 w-full text-sm"
+                    value={configVals[f.key] ?? ""}
+                    placeholder={f.placeholder}
+                    onChange={(e) => setConfigVals((p) => ({ ...p, [f.key]: e.target.value }))}
+                  />
+                </label>
+              ))}
+            </div>
+          ) : null}
+
+          {/* Named secret inputs — paste the key, no JSON. Falls back to raw
+              JSON only for connectors without a known field shape. */}
+          {selected?.secretFields?.length ? (
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {selected.secretFields.map((f) => (
+                <label key={f.key} className="text-xs font-medium text-text-muted">
+                  {f.label}
+                  <input
+                    type="password"
+                    autoComplete="off"
+                    className="input mt-1 w-full text-sm"
+                    value={secretVals[f.key] ?? ""}
+                    placeholder="paste here — encrypted at rest"
+                    onChange={(e) => setSecretVals((p) => ({ ...p, [f.key]: e.target.value }))}
+                  />
+                </label>
+              ))}
+            </div>
+          ) : selected?.requiresSecrets ? (
             <textarea
-              className="input font-mono text-xs"
+              className="input mt-3 w-full font-mono text-xs"
               rows={2}
-              placeholder='Config JSON (optional), e.g. {"url":"https://blog.com"}'
-              value={configText}
-              onChange={(e) => setConfigText(e.target.value)}
-            />
-            <textarea
-              className="input font-mono text-xs"
-              rows={2}
-              placeholder={
-                selected?.requiresSecrets
-                  ? 'Secrets JSON, e.g. {"apiKey":"..."} (encrypted at rest)'
-                  : "Secrets JSON (not needed for this connector)"
-              }
+              placeholder='Secrets JSON, e.g. {"apiKey":"..."} (encrypted at rest)'
               value={secretsText}
               onChange={(e) => setSecretsText(e.target.value)}
             />
-          </div>
+          ) : null}
+
           {selected?.requiresSecrets && (selected.apiKeyUrl || selected.docsUrl) && (
             <p className="mt-2 text-xs text-text-muted">
               {selected.apiKeyUrl && (
@@ -1213,6 +1257,17 @@ function ConnectorsPanel({
               )}
             </p>
           )}
+
+          <details className="mt-3 text-xs text-text-muted">
+            <summary className="cursor-pointer select-none">Advanced — extra config (JSON)</summary>
+            <textarea
+              className="input mt-2 w-full font-mono text-xs"
+              rows={2}
+              placeholder='Optional, e.g. {"warnDays":30,"baseUrl":"https://…"}'
+              value={configText}
+              onChange={(e) => setConfigText(e.target.value)}
+            />
+          </details>
         </div>
       </div>
     </details>

@@ -78,6 +78,10 @@ export interface ConnectorCatalogItem {
   docsUrl?: string;
   /** Direct link to where the provider's API key / token is created. */
   apiKeyUrl?: string;
+  /** Named secret inputs to render (instead of raw JSON), e.g. API key. */
+  secretFields?: { key: string; label: string }[];
+  /** Named required config inputs (e.g. site id, org, zone). */
+  configFields?: { key: string; label: string; placeholder?: string }[];
   actions: { id: string; title: string; destructive: boolean }[];
 }
 
@@ -118,6 +122,35 @@ const BUILTIN_API_KEY_URL: Record<string, string> = {
   netlify: "https://app.netlify.com/user/applications#personal-access-tokens",
   sentry: "https://sentry.io/settings/account/api/auth-tokens/",
   plausible: "https://plausible.io/settings#api-keys",
+};
+
+/** Named secret inputs per built-in connector (so users paste keys, not JSON). */
+const BUILTIN_SECRET_FIELDS: Record<string, { key: string; label: string }[]> = {
+  cloudflare: [{ key: "apiToken", label: "API token" }],
+  pagespeed: [{ key: "apiKey", label: "API key" }],
+  uptimerobot: [{ key: "apiKey", label: "API key" }],
+  ga4: [{ key: "clientEmail", label: "Service account email" }, { key: "privateKey", label: "Private key" }],
+  datadog: [{ key: "apiKey", label: "API key" }, { key: "appKey", label: "Application key" }],
+  snyk: [{ key: "token", label: "API token" }],
+  aws_cost: [{ key: "accessKeyId", label: "Access key ID" }, { key: "secretAccessKey", label: "Secret access key" }],
+  github: [{ key: "token", label: "Personal access token" }],
+  vercel: [{ key: "token", label: "API token" }],
+  stripe: [{ key: "apiKey", label: "Secret key" }],
+  godaddy: [{ key: "apiKey", label: "API key" }, { key: "apiSecret", label: "API secret" }],
+  namecheap: [{ key: "apiKey", label: "API key" }],
+  netlify: [{ key: "token", label: "Personal access token" }],
+  sentry: [{ key: "token", label: "Auth token" }],
+  plausible: [{ key: "apiKey", label: "API key" }],
+};
+
+/** Named required config inputs per built-in connector. */
+const BUILTIN_CONFIG_FIELDS: Record<string, { key: string; label: string; placeholder?: string }[]> = {
+  cloudflare: [{ key: "zoneId", label: "Zone ID" }],
+  ga4: [{ key: "propertyId", label: "GA4 property ID", placeholder: "123456789" }],
+  vercel: [{ key: "project", label: "Project name or ID" }],
+  netlify: [{ key: "siteId", label: "Site ID or name" }],
+  sentry: [{ key: "org", label: "Organization slug" }, { key: "project", label: "Project slug" }],
+  namecheap: [{ key: "apiUser", label: "API user (account)" }, { key: "clientIp", label: "Whitelisted client IP" }],
 };
 
 export interface CreateAlertRuleInput {
@@ -335,6 +368,8 @@ export class ManageService {
         verified: c.meta?.verified ?? isBuiltInConnector(c.id),
         docsUrl: c.meta?.docsUrl,
         apiKeyUrl: c.meta?.apiKeyUrl ?? BUILTIN_API_KEY_URL[c.id],
+        secretFields: BUILTIN_SECRET_FIELDS[c.id],
+        configFields: BUILTIN_CONFIG_FIELDS[c.id],
         actions: (c.actions ?? []).map((a) => ({
           id: a.id,
           title: a.title,
