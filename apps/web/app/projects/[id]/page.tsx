@@ -1028,7 +1028,12 @@ function ConnectorsPanel({
   const [secretVals, setSecretVals] = useState<Record<string, string>>({});
   const [configText, setConfigText] = useState(""); // advanced extra-config JSON
   const [secretsText, setSecretsText] = useState(""); // raw JSON for unknown connectors
-  const selected = catalog.find((c) => c.id === connId);
+
+  // Only offer connectors that aren't already on the project.
+  const addedIds = new Set(project.connectors.map((c) => c.connectorId));
+  const available = catalog.filter((c) => !addedIds.has(c.id));
+  const effectiveId = available.some((c) => c.id === connId) ? connId : available[0]?.id ?? "";
+  const selected = catalog.find((c) => c.id === effectiveId);
 
   function selectConnector(id: string) {
     setConnId(id);
@@ -1050,7 +1055,7 @@ function ConnectorsPanel({
       if (secretsText.trim()) secrets = { ...secrets, ...(JSON.parse(secretsText) as Record<string, string>) };
       await api(`/manage/projects/${project.id}/connectors`, {
         method: "POST",
-        body: JSON.stringify({ connectorId: connId, config, secrets }),
+        body: JSON.stringify({ connectorId: effectiveId, config, secrets }),
       });
       setConfigVals({});
       setSecretVals({});
@@ -1171,21 +1176,24 @@ function ConnectorsPanel({
         )}
 
         <div className="rounded-lg border border-dashed border-border p-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <select className="input" value={connId} onChange={(e) => selectConnector(e.target.value)}>
-              {catalog.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.category} · {c.title}
-                  {c.authKind !== "none" ? ` · ${c.authKind}` : ""}
-                  {c.actions.length ? ` · ${c.actions.length} action${c.actions.length === 1 ? "" : "s"}` : ""}
-                  {c.verified ? " · ✓" : ""}
-                </option>
-              ))}
-            </select>
-            <button onClick={add} disabled={busy || !connId} className="btn-accent">
-              Add / update
-            </button>
-          </div>
+          {available.length === 0 ? (
+            <p className="text-sm text-text-muted">All available connectors are already added.</p>
+          ) : (
+            <div className="flex flex-wrap items-center gap-2">
+              <select className="input" value={effectiveId} onChange={(e) => selectConnector(e.target.value)}>
+                {available.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.category} · {c.title}
+                    {c.authKind !== "none" ? ` · ${c.authKind}` : ""}
+                    {c.actions.length ? ` · ${c.actions.length} action${c.actions.length === 1 ? "" : "s"}` : ""}
+                  </option>
+                ))}
+              </select>
+              <button onClick={add} disabled={busy || !effectiveId} className="btn-accent">
+                Add
+              </button>
+            </div>
+          )}
 
           {/* Named config fields (when the connector requires them) */}
           {selected?.configFields?.length ? (
@@ -1258,16 +1266,18 @@ function ConnectorsPanel({
             </p>
           )}
 
-          <details className="mt-3 text-xs text-text-muted">
-            <summary className="cursor-pointer select-none">Advanced — extra config (JSON)</summary>
-            <textarea
-              className="input mt-2 w-full font-mono text-xs"
-              rows={2}
-              placeholder='Optional, e.g. {"warnDays":30,"baseUrl":"https://…"}'
-              value={configText}
-              onChange={(e) => setConfigText(e.target.value)}
-            />
-          </details>
+          {selected && (
+            <details className="mt-3 text-xs text-text-muted">
+              <summary className="cursor-pointer select-none">Advanced — extra config (JSON)</summary>
+              <textarea
+                className="input mt-2 w-full font-mono text-xs"
+                rows={2}
+                placeholder='Optional, e.g. {"warnDays":30,"baseUrl":"https://…"}'
+                value={configText}
+                onChange={(e) => setConfigText(e.target.value)}
+              />
+            </details>
+          )}
         </div>
       </div>
     </details>
