@@ -4,8 +4,9 @@ import { usePathname } from "next/navigation";
 import { AppShell } from "./AppShell";
 import { Footer } from "./Footer";
 
-/** Routes that render their own full-screen layout (no app chrome). */
-const BARE_ROUTES = ["/login", "/invite"];
+/** Routes that render their own full-screen layout (no app chrome). /status is
+ *  public — visitors should see the status page, not the app shell. */
+const BARE_ROUTES = ["/login", "/invite", "/status"];
 
 /**
  * Wraps every page with the app shell (left rail + top bar) + footer, except

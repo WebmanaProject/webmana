@@ -19,10 +19,12 @@ export default function AssistantPage() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
-  const endRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
+  // Scroll the chat container itself (not the document) to the newest message.
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
+    const el = listRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
   }, [messages, busy]);
 
   async function ask(text: string) {
@@ -50,7 +52,7 @@ export default function AssistantPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col px-4 py-6 sm:px-6 sm:py-10">
+    <main className="mx-auto flex h-[calc(100vh-3.5rem)] max-w-3xl flex-col px-4 py-6 sm:px-6">
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Assistant</h1>
@@ -63,7 +65,7 @@ export default function AssistantPage() {
         </a>
       </div>
 
-      <div className="flex-1 space-y-4 overflow-y-auto rounded-2xl border border-border bg-bg-subtle p-4">
+      <div ref={listRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto rounded-2xl border border-border bg-bg-subtle p-4">
         {messages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-4 py-10 text-center">
             <p className="text-sm text-text-muted">Try asking:</p>
@@ -101,7 +103,6 @@ export default function AssistantPage() {
             </div>
           </div>
         )}
-        <div ref={endRef} />
       </div>
 
       <form
